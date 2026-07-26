@@ -1,0 +1,1632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ledger - GK Revision Tracker</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Source+Sans+3:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --ink:#14213D;
+    --ink-2:#1F2E52;
+    --parchment:#FFFAF0;
+    --parchment-dim:#F5EFDF;
+    --amber:#E8A33D;
+    --amber-dim:#C98A2C;
+    --sage:#7A8B6F;
+    --sage-dim:#5F6E55;
+    --rust:#B5533C;
+    --line:rgba(255,250,240,0.12);
+    --line-strong:rgba(255,250,240,0.22);
+    --text-dim:rgba(255,250,240,0.58);
+    --text-dimmer:rgba(255,250,240,0.38);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--ink);color:var(--parchment);font-family:'Source Sans 3',sans-serif;}
+  body{min-height:100vh; padding-bottom:90px;}
+  ::selection{background:var(--amber); color:var(--ink);}
+
+  h1,h2,h3,.serif{font-family:'Fraunces',serif;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+
+  a{color:inherit;}
+  button{font-family:inherit; cursor:pointer;}
+  :focus-visible{outline:2px solid var(--amber); outline-offset:2px;}
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.01ms !important; transition-duration:0.01ms !important;}
+  }
+
+  header{
+    padding:28px 20px 20px;
+    border-bottom:1px solid var(--line);
+    position:sticky; top:0; z-index:20;
+    background:linear-gradient(180deg, var(--ink) 70%, rgba(20,33,61,0.97));
+    backdrop-filter:blur(8px);
+  }
+  .header-top{display:flex; align-items:baseline; justify-content:space-between; gap:12px;}
+  .wordmark{font-size:26px; font-weight:600; letter-spacing:-0.01em;}
+  .wordmark .accent{color:var(--amber);}
+  .deadline-chip{
+    font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-dim);
+    border:1px solid var(--line-strong); border-radius:20px; padding:5px 10px;
+    white-space:nowrap;
+  }
+  .deadline-chip b{color:var(--amber); font-weight:600;}
+  .subtitle{font-size:13px; color:var(--text-dim); margin-top:4px;}
+
+  .tabs{
+    display:flex; gap:4px; margin-top:18px; overflow-x:auto;
+    scrollbar-width:none; -ms-overflow-style:none;
+  }
+  .tabs::-webkit-scrollbar{display:none;}
+  .tab{
+    padding:9px 14px; border-radius:10px; border:1px solid transparent;
+    background:transparent; color:var(--text-dim); font-size:14px; font-weight:600;
+    white-space:nowrap; transition:all .15s ease;
+  }
+  .tab.active{background:var(--parchment); color:var(--ink);}
+  .tab:not(.active):hover{color:var(--parchment); border-color:var(--line-strong);}
+  .tab .count{
+    display:inline-block; margin-left:6px; font-family:'JetBrains Mono',monospace; font-size:11px;
+    opacity:0.65;
+  }
+
+  main{padding:22px 20px 40px; max-width:640px; margin:0 auto;}
+  .hidden{display:none !important;}
+
+  .empty{
+    text-align:center; padding:60px 20px; color:var(--text-dim);
+  }
+  .empty .glyph{font-size:34px; margin-bottom:10px; opacity:0.5;}
+  .empty h3{color:var(--parchment); font-size:19px; margin:0 0 6px;}
+  .empty p{font-size:14px; line-height:1.5; margin:0;}
+
+  .today-hero{
+    background:linear-gradient(135deg, var(--ink-2), var(--ink));
+    border:1px solid var(--line-strong); border-radius:18px;
+    padding:22px 20px; margin-bottom:20px; position:relative; overflow:hidden;
+  }
+  .today-hero::before{
+    content:''; position:absolute; top:-40px; right:-40px; width:140px; height:140px;
+    border-radius:50%; background:radial-gradient(circle, rgba(232,163,61,0.16), transparent 70%);
+  }
+  .today-date{font-size:12px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.08em; font-weight:600;}
+  .today-count-row{display:flex; align-items:baseline; gap:10px; margin-top:6px;}
+  .today-count{font-family:'Fraunces',serif; font-size:44px; font-weight:600; line-height:1;}
+  .today-count-label{font-size:14px; color:var(--text-dim);}
+  .overdue-badge{
+    display:inline-flex; align-items:center; gap:5px; margin-top:10px;
+    background:rgba(181,83,60,0.15); border:1px solid rgba(181,83,60,0.4);
+    color:#E8917E; font-size:12px; font-weight:600; padding:5px 10px; border-radius:8px;
+  }
+  .today-progress{
+    margin-top:14px; height:6px; border-radius:4px; background:rgba(255,250,240,0.1); overflow:hidden;
+  }
+  .today-progress-fill{height:100%; background:var(--amber); border-radius:4px; transition:width .4s ease;}
+
+  .section-label{
+    font-size:12px; text-transform:uppercase; letter-spacing:0.09em; font-weight:700;
+    color:var(--text-dimmer); margin:26px 0 12px; display:flex; align-items:center; gap:8px;
+  }
+  .section-label::after{content:''; flex:1; height:1px; background:var(--line);}
+
+  .topic-card-expanded{
+    background:var(--parchment); color:var(--ink); border-radius:14px;
+    padding:15px 16px; margin-bottom:10px; transition:opacity .15s ease;
+  }
+  .topic-card-expanded.done-today{opacity:0.55;}
+  .topic-card-header{display:flex; align-items:center; gap:14px; cursor:pointer;}
+  .src-progress{
+    font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--amber-dim);
+    background:rgba(232,163,61,0.12); border-radius:6px; padding:2px 7px; font-weight:700;
+  }
+  .source-check-list{margin-top:12px; padding-top:12px; border-top:1px solid rgba(20,33,61,0.1); display:flex; flex-direction:column; gap:7px;}
+  .source-check-row{display:flex; align-items:center; gap:10px; cursor:pointer; padding:4px 2px;}
+  .source-check-box{
+    flex-shrink:0; width:24px; height:24px; border-radius:7px; border:2px solid rgba(20,33,61,0.2);
+    display:flex; align-items:center; justify-content:center; transition:all .15s ease;
+  }
+  .source-check-box svg{width:14px; height:14px; stroke:var(--ink); fill:none; stroke-width:3; opacity:0;}
+  .source-check-box.checked{background:var(--sage); border-color:var(--sage);}
+  .source-check-box.checked svg{opacity:1; stroke:var(--parchment);}
+  .source-check-label{font-size:13.5px; color:rgba(20,33,61,0.85); line-height:1.3;}
+  .source-check-row.checked .source-check-label{color:rgba(20,33,61,0.45); text-decoration:line-through;}
+
+  .topic-card{
+    background:var(--parchment); color:var(--ink); border-radius:14px;
+    padding:15px 16px; margin-bottom:10px; display:flex; align-items:center; gap:14px;
+    transition:transform .12s ease, box-shadow .12s ease;
+  }
+  .topic-card.done-today{opacity:0.5;}
+  .check-btn{
+    flex-shrink:0; width:38px; height:38px; border-radius:50%;
+    border:2px solid var(--sage-dim); background:transparent;
+    display:flex; align-items:center; justify-content:center; transition:all .15s ease;
+  }
+  .check-btn svg{width:18px; height:18px; stroke:var(--sage-dim); fill:none; stroke-width:2.5; opacity:0;}
+  .check-btn:hover{border-color:var(--sage); background:rgba(122,139,111,0.08);}
+  .check-btn.checked{background:var(--sage); border-color:var(--sage);}
+  .check-btn.checked svg{opacity:1; stroke:var(--parchment);}
+  .topic-info{flex:1; min-width:0;}
+  .topic-name{font-weight:600; font-size:15px; line-height:1.3;}
+  .topic-meta{display:flex; align-items:center; gap:8px; margin-top:5px; flex-wrap:wrap;}
+  .rep-badge{
+    font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink);
+    background:var(--parchment-dim); border:1px solid rgba(20,33,61,0.12);
+    border-radius:6px; padding:2px 7px; font-weight:600;
+  }
+  .cat-tag{font-size:11px; color:rgba(20,33,61,0.5); font-weight:600;}
+  .dial{
+    flex-shrink:0; width:40px; height:40px; position:relative;
+  }
+  .dial svg{width:100%; height:100%; transform:rotate(-90deg);}
+  .dial-track{fill:none; stroke:rgba(20,33,61,0.1); stroke-width:4;}
+  .dial-fill{fill:none; stroke:var(--amber-dim); stroke-width:4; stroke-linecap:round; transition:stroke-dashoffset .4s ease;}
+  .dial-label{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; color:var(--ink);
+  }
+
+  .pending-card{
+    background:transparent; border:1px solid var(--line); border-radius:14px;
+    padding:14px 16px; margin-bottom:9px; display:flex; align-items:center; gap:14px;
+  }
+  .pending-check{
+    flex-shrink:0; width:34px; height:34px; border-radius:9px;
+    border:2px dashed var(--line-strong); background:transparent;
+    display:flex; align-items:center; justify-content:center; transition:all .15s ease;
+    color:var(--text-dimmer); font-size:16px; font-weight:700;
+  }
+  .pending-check:hover{border-color:var(--amber); border-style:solid; color:var(--amber); background:rgba(232,163,61,0.08);}
+  .pending-info{flex:1; min-width:0;}
+  .pending-name{font-weight:600; font-size:14.5px; color:var(--parchment);}
+  .pending-sources{font-size:12px; color:var(--text-dimmer); margin-top:3px;}
+
+  .cat-collapse-header{
+    width:100%; display:flex; align-items:center; gap:10px;
+    background:var(--ink-2); border:1px solid var(--line); border-radius:12px;
+    padding:13px 14px; margin-bottom:8px; color:var(--parchment); text-align:left;
+  }
+  .cat-collapse-arrow{font-size:11px; color:var(--text-dimmer); transition:transform .15s ease; display:inline-block;}
+  .cat-collapse-arrow.open{transform:rotate(90deg); color:var(--amber);}
+  .cat-collapse-name{flex:1; font-weight:600; font-size:14.5px;}
+  .cat-collapse-count{
+    font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--text-dim);
+    background:rgba(255,250,240,0.08); border-radius:8px; padding:2px 8px;
+  }
+  .cat-collapse-body{margin-bottom:14px; padding-left:2px;}
+
+  .chip-row{display:flex; gap:8px; overflow-x:auto; margin-bottom:16px; scrollbar-width:none;}
+  .chip-row::-webkit-scrollbar{display:none;}
+  .chip{
+    padding:6px 12px; border-radius:20px; border:1px solid var(--line-strong);
+    font-size:12.5px; color:var(--text-dim); white-space:nowrap; flex-shrink:0; font-weight:600;
+  }
+  .chip.active{background:var(--amber); border-color:var(--amber); color:var(--ink);}
+
+  .search-box{
+    display:flex; align-items:center; gap:10px; background:var(--ink-2);
+    border:1px solid var(--line-strong); border-radius:12px; padding:11px 14px; margin-bottom:16px;
+  }
+  .search-box svg{width:16px; height:16px; stroke:var(--text-dimmer); fill:none; stroke-width:2; flex-shrink:0;}
+  .search-box input{
+    background:transparent; border:none; color:var(--parchment); font-size:14.5px; width:100%;
+    font-family:inherit;
+  }
+  .search-box input:focus{outline:none;}
+  .search-box input::placeholder{color:var(--text-dimmer);}
+
+  .all-row{
+    display:flex; align-items:center; gap:12px; padding:13px 4px;
+    border-bottom:1px solid var(--line); cursor:pointer;
+  }
+  .all-row:active{background:rgba(255,250,240,0.04);}
+  .all-row-expand{
+    padding:4px 4px 16px 24px; border-bottom:1px solid var(--line);
+    font-size:13px; color:var(--text-dim);
+  }
+  .all-row-expand-title{font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-dimmer); font-weight:700; margin:10px 0 6px;}
+  .all-row-expand-title:first-child{margin-top:0;}
+  .source-item{
+    padding:7px 10px; background:var(--ink-2); border-radius:8px; margin-bottom:5px; font-size:13px;
+  }
+  .rep-history{display:flex; flex-wrap:wrap; gap:5px;}
+  .rep-history-date{
+    font-family:'JetBrains Mono',monospace; font-size:11px; background:rgba(122,139,111,0.18);
+    color:var(--sage); border-radius:6px; padding:3px 7px;
+  }
+  .status-dot{width:8px; height:8px; border-radius:50%; flex-shrink:0;}
+  .status-dot.done{background:var(--sage);}
+  .status-dot.pending{background:var(--text-dimmer);}
+  .all-row-info{flex:1; min-width:0;}
+  .all-row-name{font-size:14.5px; font-weight:600;}
+  .all-row-meta{font-size:11.5px; color:var(--text-dimmer); margin-top:2px;}
+  .all-row-reps{
+    font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text-dim); flex-shrink:0;
+  }
+  .all-row-add{
+    flex-shrink:0; width:28px; height:28px; border-radius:8px; border:1px solid var(--line-strong);
+    background:transparent; color:var(--text-dim); font-size:15px; display:flex; align-items:center; justify-content:center;
+  }
+  .all-row-add:hover{border-color:var(--amber); color:var(--amber);}
+
+  .stat-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:22px;}
+  .stat-box{
+    background:var(--ink-2); border:1px solid var(--line); border-radius:14px; padding:16px;
+  }
+  .stat-num{font-family:'Fraunces',serif; font-size:30px; font-weight:600; line-height:1; color:var(--amber);}
+  .stat-label{font-size:12px; color:var(--text-dim); margin-top:5px;}
+  .cat-bar-row{margin-bottom:14px;}
+  .cat-bar-top{display:flex; justify-content:space-between; font-size:13px; margin-bottom:6px;}
+  .cat-bar-top .cat-name{font-weight:600;}
+  .cat-bar-top .cat-frac{color:var(--text-dim); font-family:'JetBrains Mono',monospace; font-size:12px;}
+  .cat-bar-track{height:8px; border-radius:5px; background:rgba(255,250,240,0.08); overflow:hidden;}
+  .cat-bar-fill{height:100%; background:var(--sage); border-radius:5px;}
+
+  .dup-card{
+    background:var(--ink-2); border:1px solid rgba(232,163,61,0.35); border-radius:14px;
+    padding:15px 16px; margin-bottom:12px;
+  }
+  .dup-title{font-size:12px; color:var(--amber); text-transform:uppercase; letter-spacing:0.06em; font-weight:700; margin-bottom:8px;}
+  .dup-pair{font-size:14.5px; margin-bottom:3px;}
+  .dup-actions{display:flex; gap:8px; margin-top:10px;}
+  .dup-btn{
+    flex:1; padding:9px; border-radius:9px; border:1px solid var(--line-strong);
+    background:transparent; color:var(--parchment); font-size:13px; font-weight:600;
+  }
+  .dup-btn.primary{background:var(--amber); border-color:var(--amber); color:var(--ink);}
+
+  .bottom-nav{
+    position:fixed; bottom:0; left:0; right:0; z-index:30;
+    background:var(--ink-2); border-top:1px solid var(--line-strong);
+    display:flex; padding:8px 6px calc(8px + env(safe-area-inset-bottom));
+    backdrop-filter:blur(10px);
+  }
+  .nav-btn{
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
+    padding:6px 2px; border-radius:10px; background:transparent; border:none;
+    color:var(--text-dimmer); font-size:10.5px; font-weight:600;
+  }
+  .nav-btn svg{width:20px; height:20px; stroke:currentColor; fill:none; stroke-width:2;}
+  .nav-btn.active{color:var(--amber);}
+
+  .toast{
+    position:fixed; bottom:86px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--parchment); color:var(--ink); padding:11px 20px; border-radius:30px;
+    font-size:13.5px; font-weight:600; box-shadow:0 8px 24px rgba(0,0,0,0.3);
+    opacity:0; transition:all .25s ease; pointer-events:none; z-index:50; white-space:nowrap;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+  .info-box{
+    background:rgba(232,163,61,0.08); border:1px solid rgba(232,163,61,0.3);
+    border-radius:12px; padding:14px 16px; font-size:13px; color:var(--text-dim);
+    line-height:1.5; margin-bottom:18px;
+  }
+  .info-box b{color:var(--amber);}
+
+  .fab{
+    position:fixed; right:18px; bottom:100px; z-index:35;
+    width:54px; height:54px; border-radius:50%; background:var(--amber);
+    border:none; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 8px 20px rgba(232,163,61,0.4);
+  }
+  .fab svg{width:24px; height:24px; stroke:var(--ink); fill:none; stroke-width:2.5;}
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(20,33,61,0.75); backdrop-filter:blur(3px);
+    z-index:60; display:flex; align-items:flex-end; justify-content:center;
+  }
+  .modal-overlay.hidden{display:none;}
+  .modal-sheet{
+    background:var(--parchment); color:var(--ink); width:100%; max-width:640px;
+    border-radius:20px 20px 0 0; padding:22px 20px calc(24px + env(safe-area-inset-bottom));
+    max-height:88vh; overflow-y:auto;
+  }
+  .modal-title{font-family:'Fraunces',serif; font-size:20px; font-weight:600; margin-bottom:4px;}
+  .modal-sub{font-size:13px; color:rgba(20,33,61,0.6); margin-bottom:18px;}
+  .field-label{font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:rgba(20,33,61,0.55); margin-bottom:6px; display:block;}
+  .field-input{
+    width:100%; padding:12px 14px; border-radius:10px; border:1.5px solid rgba(20,33,61,0.15);
+    background:#fff; font-size:15px; font-family:inherit; color:var(--ink); margin-bottom:16px;
+  }
+  .field-input:focus{outline:none; border-color:var(--amber-dim);}
+  .status-toggle{display:flex; gap:8px; margin-bottom:18px;}
+  .status-opt{
+    flex:1; padding:12px; border-radius:10px; border:1.5px solid rgba(20,33,61,0.15);
+    text-align:center; font-size:13.5px; font-weight:600; background:#fff;
+  }
+  .status-opt.selected{border-color:var(--amber-dim); background:rgba(232,163,61,0.12);}
+  .modal-actions{display:flex; gap:10px;}
+  .modal-btn{flex:1; padding:13px; border-radius:11px; font-size:14.5px; font-weight:700; border:none;}
+  .modal-btn.cancel{background:transparent; border:1.5px solid rgba(20,33,61,0.15); color:var(--ink);}
+  .modal-btn.save{background:var(--ink); color:var(--parchment);}
+  .mode-toggle{display:flex; gap:8px; margin-bottom:20px; background:rgba(20,33,61,0.06); border-radius:11px; padding:4px;}
+  .mode-opt{flex:1; padding:9px; border-radius:8px; text-align:center; font-size:13px; font-weight:700; background:transparent; border:none; color:rgba(20,33,61,0.55);}
+  .mode-opt.active{background:#fff; color:var(--ink); box-shadow:0 1px 3px rgba(0,0,0,0.1);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-top">
+    <div class="wordmark">Ledger<span class="accent">.</span></div>
+    <div class="deadline-chip" id="deadlineChip">15 reps by <b>16 Nov</b></div>
+  </div>
+  <div class="subtitle">GK &amp; Current Affairs - revision tracker</div>
+  <div class="tabs">
+    <button class="tab active" data-view="today">Today</button>
+    <button class="tab" data-view="backlog">Backlog <span class="count" id="backlogCount"></span></button>
+    <button class="tab" data-view="all">All Topics</button>
+    <button class="tab" data-view="stats">Progress</button>
+  </div>
+</header>
+
+<main>
+
+  <section id="view-today">
+    <div class="today-hero">
+      <div class="today-date" id="todayDateLabel">-</div>
+      <div class="today-count-row">
+        <div class="today-count" id="todayDueCount">0</div>
+        <div class="today-count-label">topics due for revision</div>
+      </div>
+      <div class="today-progress"><div class="today-progress-fill" id="todayProgressFill" style="width:0%"></div></div>
+      <div id="overdueBadge"></div>
+    </div>
+    <div id="todayList"></div>
+  </section>
+
+  <section id="view-backlog" class="hidden">
+    <div class="info-box">Tap a topic once you've actually covered it - from any source. It'll join your revision cycle starting today. Tap a category to expand it.</div>
+    <div class="search-box">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <input type="text" id="backlogSearch" placeholder="Search pending topics...">
+    </div>
+    <div id="backlogList"></div>
+  </section>
+
+  <section id="view-all" class="hidden">
+    <div class="search-box">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <input type="text" id="allSearch" placeholder="Search all topics...">
+    </div>
+    <div class="chip-row" id="categoryChips"></div>
+    <div id="allList"></div>
+  </section>
+
+  <section id="view-stats" class="hidden">
+    <div class="stat-grid">
+      <div class="stat-box"><div class="stat-num" id="statTotal">0</div><div class="stat-label">Total topics</div></div>
+      <div class="stat-box"><div class="stat-num" id="statDone">0</div><div class="stat-label">In revision cycle</div></div>
+      <div class="stat-box"><div class="stat-num" id="statReps">0</div><div class="stat-label">Reps completed</div></div>
+      <div class="stat-box"><div class="stat-num" id="statDaysLeft">0</div><div class="stat-label">Days to deadline</div></div>
+    </div>
+    <div class="section-label">By category</div>
+    <div id="categoryBars"></div>
+    <div class="section-label">Daily MCQs &amp; One-Liners</div>
+    <div id="mcqStatusList"></div>
+    <div class="section-label">Possible duplicates</div>
+    <div id="dupList"></div>
+    <div class="section-label">Backup</div>
+    <div style="background:rgba(122,139,111,0.08); border:1px solid rgba(122,139,111,0.3); border-radius:12px; padding:14px 16px; margin-bottom:12px;">
+      <div style="font-size:13px; color:var(--text-dim); line-height:1.5; margin-bottom:12px;">
+        Your progress lives only in this browser. Export it regularly as a backup, or to move it to another device. Import restores from a previously exported file.
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button id="exportBtn" style="flex:1; padding:11px; border-radius:9px; border:1px solid var(--sage); background:transparent; color:var(--sage); font-weight:700; font-size:13px;">Export progress</button>
+        <button id="importBtn" style="flex:1; padding:11px; border-radius:9px; border:1px solid var(--line-strong); background:transparent; color:var(--parchment); font-weight:700; font-size:13px;">Import progress</button>
+      </div>
+      <input type="file" id="importFile" accept="application/json" style="display:none;">
+    </div>
+    <div class="section-label">Danger zone</div>
+    <div style="background:rgba(181,83,60,0.08); border:1px solid rgba(181,83,60,0.3); border-radius:12px; padding:14px 16px;">
+      <div style="font-size:13px; color:var(--text-dim); line-height:1.5; margin-bottom:12px;">
+        If the app seems stuck on old data after an update, or you want to start completely fresh, this wipes all saved progress and rebuilds from the current topic list.
+      </div>
+      <button id="resetBtn" style="width:100%; padding:11px; border-radius:9px; border:1px solid rgba(181,83,60,0.4); background:transparent; color:#E8917E; font-weight:700; font-size:13.5px;">Reset &amp; rebuild schedule</button>
+    </div>
+  </section>
+
+</main>
+
+<button class="fab" id="fabAdd" title="Add topic or source">
+  <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+</button>
+<button class="fab" id="fabMcq" title="Log today's 5 MCQs (builds into a 35-question weekly batch)" style="right:82px; background:var(--sage);">
+  <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" stroke="var(--parchment)"/></svg>
+</button>
+<button class="fab" id="fabMcqBackfill" title="Log a past week's MCQs (already completed)" style="right:146px; background:var(--ink-2); border:1px solid var(--line-strong); box-shadow:none;">
+  <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z" stroke="var(--parchment)" fill="none" stroke-width="2"/><path d="M12 6v6l4 2" stroke="var(--parchment)" fill="none" stroke-width="2"/></svg>
+</button>
+
+<div class="modal-overlay hidden" id="backfillModal">
+  <div class="modal-sheet">
+    <div class="modal-title">Log a past week's MCQs</div>
+    <div class="modal-sub">If you already completed a week of daily 5 MCQs before starting to use this tracker, mark it done here in one go, dated correctly so its revision schedule starts from when you actually finished it.</div>
+
+    <label class="field-label">Week starting (Monday)</label>
+    <input type="date" class="field-input" id="backfillMonday">
+
+    <div class="modal-actions">
+      <button class="modal-btn cancel" id="backfillCancel">Cancel</button>
+      <button class="modal-btn save" id="backfillSave">Mark week done</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="addModal">
+  <div class="modal-sheet">
+    <div class="modal-title">Add to Ledger</div>
+    <div class="modal-sub">Add a brand-new topic, or attach another source to a topic that already exists.</div>
+
+    <div class="mode-toggle">
+      <button class="mode-opt active" data-mode="new">New topic</button>
+      <button class="mode-opt" data-mode="existing">Add source to existing</button>
+    </div>
+
+    <div id="modeNew">
+      <label class="field-label">Topic name</label>
+      <input type="text" class="field-input" id="newTopicName" placeholder="e.g. India-Japan Summit">
+
+      <label class="field-label">Category</label>
+      <select class="field-input" id="newTopicCategory"></select>
+
+      <label class="field-label">Source (magazine issue, class, Fiesta test, etc.)</label>
+      <input type="text" class="field-input" id="newTopicSource" placeholder="e.g. CLAT Post Magazine (July Week 1)">
+
+      <label class="field-label">Status</label>
+      <div class="status-toggle">
+        <button class="status-opt selected" data-status="pending">Pending (backlog)</button>
+        <button class="status-opt" data-status="done">Already done</button>
+      </div>
+    </div>
+
+    <div id="modeExisting" class="hidden">
+      <label class="field-label">Find existing topic</label>
+      <input type="text" class="field-input" id="existingTopicSearch" placeholder="Start typing a topic name...">
+      <div id="existingTopicResults" style="max-height:160px; overflow-y:auto; margin-bottom:10px;"></div>
+      <label class="field-label">New source to attach</label>
+      <input type="text" class="field-input" id="existingTopicSource" placeholder="e.g. GK Fiesta Test 17 (Class)">
+    </div>
+
+    <div class="modal-actions">
+      <button class="modal-btn cancel" id="modalCancel">Cancel</button>
+      <button class="modal-btn save" id="modalSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<nav class="bottom-nav">
+  <button class="nav-btn active" data-view="today">
+    <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+    Today
+  </button>
+  <button class="nav-btn" data-view="backlog">
+    <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/><path d="M12 6v6l4 2"/></svg>
+    Backlog
+  </button>
+  <button class="nav-btn" data-view="all">
+    <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+    All
+  </button>
+  <button class="nav-btn" data-view="stats">
+    <svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-3"/></svg>
+    Progress
+  </button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SEED_TOPICS = [{"id":"t1","name":"AI Impact Summit 2026","category":"Science & Technology","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t2","name":"Ebola & Hanta Virus Mission","category":"Science & Technology","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t3","name":"PSLV C62 Mission","category":"Science & Technology","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t4","name":"Artemis II","category":"Science & Technology","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t5","name":"Mission Angaman (Vikram-I)","category":"Science & Technology","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t6","name":"Places of Worship Act, 1991","category":"Polity","sources":["Class Notes (Folder)","GK Fiesta Test 10 (Hindu Analysis)","GK Mega Fiesta 2 (recap of Test 10)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t7","name":"CBI","category":"Polity","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t8","name":"MTP Act, 1971","category":"Polity","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t9","name":"Anti Defection Law","category":"Polity","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t10","name":"FERA","category":"Polity","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t11","name":"UAPA","category":"Polity","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t12","name":"Law Of Sedition","category":"Polity","sources":["Class Notes (Folder)","GK Fiesta Test 11 (Class)","GK Fiesta Test 12 (Class)","GK Fiesta Test 13 (Class)","GK Mega Fiesta 3 (recap of Test 11)","GK Mega Fiesta 3 (recap of Test 12)","GK Mega Fiesta 3 (recap of Test 13)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t13","name":"Article 164(4)","category":"Polity","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t14","name":"Menstrual Leave Rulings on BCCI","category":"Polity","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t15","name":"CIC Ruling on BCCI","category":"Polity","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t16","name":"SC/ST (Prevention of Atrocities) Act, 1989","category":"Polity","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t17","name":"Women Reservation Act, 2023","category":"Polity","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t18","name":"Ladakh Statehood Push","category":"Polity","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t19","name":"Anokhui's Draft Population Policy","category":"National","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t20","name":"Solvyg Portal","category":"National","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t21","name":"Naxalism","category":"National","sources":["Class Notes (Folder)","GK Fiesta Test 7 (Class)","GK Mega Fiesta 2 (recap of Test 7)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t22","name":"One Nation One Election","category":"National","sources":["Class Notes (Folder)","GK Fiesta Test 3 (Class)","GK Fiesta Test 4 (Class)","Mock 12","GK Mega Fiesta 1 (recap of Test 3)","GK Mega Fiesta 1 (recap of Test 4)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t23","name":"Euthanasia","category":"National","sources":["Class Notes (Folder)","GK Fiesta Test 3 (Class)","GK Fiesta Test 4 (Class)","GK Mega Fiesta 1 (recap of Test 3)","GK Mega Fiesta 1 (recap of Test 4)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t24","name":"Jharkhand Tribal Dispute","category":"National","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t25","name":"Collegium & Justice Yashwant Controversy","category":"National","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t26","name":"Vande Mataram Controversy","category":"National","sources":["Class Notes (Folder)","GK Fiesta Test 9 (The Hindu)","GK Mega Fiesta 2 (recap of Test 9)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t27","name":"NTA & NEET UG Cancellation","category":"National","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t28","name":"NCERT Textbook Controversy","category":"National","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t29","name":"Land Port Management System","category":"National","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t30","name":"ECI","category":"National","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t31","name":"Telegram Temporary Ban","category":"National","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t32","name":"Zojila Tunnel","category":"National","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t33","name":"National Education Policy (NEP)","category":"National","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t34","name":"India-Nepal Border Dispute","category":"World","sources":["Class Notes (Folder)","GK Fiesta Test 9 (YouTube)","GK Mega Fiesta 2 (recap of Test 9)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t35","name":"UAE exits OPEC & OPEC+","category":"World","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t36","name":"QUAD","category":"World","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t37","name":"India-Oman CEPA","category":"World","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t38","name":"South Sudan Crisis","category":"World","sources":["Class Notes (Folder)","GK Fiesta Test 12 (IE Explained)","GK Mega Fiesta 3 (recap of Test 12)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t39","name":"China-North Korea (DPRK)","category":"World","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t40","name":"Armenia","category":"World","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t41","name":"Israel-Palestine","category":"World","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t42","name":"BRICS FM's Meeting","category":"World","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t43","name":"G7 Summit","category":"World","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t44","name":"SIPRI Yearbook 2026","category":"World","sources":["Class Notes (Folder)","GK Fiesta Test 12 (YouTube)","GK Mega Fiesta 3 (recap of Test 12)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t45","name":"India-GCC Relations","category":"World","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t46","name":"Rolland Garros Tournament","category":"World","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t47","name":"FIFA","category":"World","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t48","name":"Major Military Exercises","category":"World","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t49","name":"India-France Relations","category":"World","sources":["Class Notes (Folder)","GK Fiesta Test 13 (IE Explained)","GK Mega Fiesta 3 (recap of Test 13)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t50","name":"Russia-Ukraine Dispute","category":"World","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t51","name":"India-Africa Forum Summit","category":"World","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t52","name":"NATO 2026 Ankara Summit","category":"World","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t53","name":"Taliban-Pakistan Conflict","category":"World","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t54","name":"500 years of Mughals","category":"Static GK","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t55","name":"Buddhism","category":"Static GK","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t56","name":"1857 Revolt","category":"Static GK","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t57","name":"Socio-Religious Movements","category":"Static GK","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t58","name":"Komagata Maru Incident","category":"Static GK","sources":["Class Notes (Folder)","GK Fiesta Test 10 (YouTube IE Explained)","GK Mega Fiesta 2 (recap of Test 10)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t59","name":"Books & Authors","category":"Static GK","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t60","name":"Indus Valley Civilisation","category":"Static GK","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t61","name":"United Nations","category":"Static GK","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t62","name":"Int'l Big Cat Alliance","category":"Environment","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t63","name":"Super El Nino","category":"Environment","sources":["Class Notes (Folder)","GK Fiesta Test 7 (YouTube)","GK Mega Fiesta 2 (recap of Test 7)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t64","name":"India's Updated NDCs","category":"Environment","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t65","name":"Indus Water Treaty","category":"Environment","sources":["Class Notes (Folder)","GK Fiesta Test 11 (YouTube)","GK Mega Fiesta 3 (recap of Test 11)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t66","name":"Aravalli Hills","category":"Environment","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t67","name":"Economy Basics","category":"Economy","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t68","name":"Rupee - Appreciation & Depreciation","category":"Economy","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t69","name":"NDTT Policy","category":"Economy","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t70","name":"MGNREGA -> VB-G RAM G","category":"Economy","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t71","name":"GST","category":"Economy","sources":["Class Notes (Folder)","GK Fiesta Test 15 (Class)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t72","name":"Budget 2026-27","category":"Economy","sources":["Class Notes (Folder)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t73","name":"Venezuela's Political and Economic Crisis","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - January"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t74","name":"Iran Protests and Gen Z Movement","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - January"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t75","name":"Bangladesh Parliamentary Elections","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - January"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t76","name":"Karbi Anglong Peace Accord & Autonomy","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - January"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t77","name":"Yemen Conflict & Saudi-UAE Divergence","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - January"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t78","name":"Climate-Resilient Agriculture (NICRA)","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - January"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t79","name":"NATGRID and NPR Integration","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - January"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t80","name":"Quadrilateral Security Dialogue (Quad)","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - January"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t81","name":"Design Linked Incentive (DLI) & Semiconductors","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - January"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t82","name":"Standards and Labelling Programme (BEE)","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - January"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t83","name":"ICGS Samudra Pratap Commissioning","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - January"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t84","name":"International Year of Rangelands & Pastoralists","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - January"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t85","name":"India-Germany Defence Relations","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - January"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t86","name":"ISRO PSLV Mission Failure","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - January"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t87","name":"INSV Kaundinya Maiden Voyage","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - January"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t88","name":"US-China Trade Relations (Trump's Trade Reset)","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - January"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t89","name":"India-UAE Relations & $200-bn Trade Target","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - January"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t90","name":"UAE's Nuclear Pivot (Light Water Reactors)","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - January"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t91","name":"US Annexation Plan for Greenland & NATO","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - January"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t92","name":"Trump's Gaza Peace Board Initiative","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - January"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t93","name":"India's BRICS Chairship & Presidency 2026","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - January"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t94","name":"India-US Trade Deal","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - Feb1","GK Fiesta Test 3 (CLAT Post Feb A)","GK Mega Fiesta 1 (recap of Test 3)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t95","name":"Gujarat's Reinstatement as Tiger State","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - Feb1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t96","name":"Great Nicobar Holistic Development Project","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - Feb1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t97","name":"RAMSAR Network Sites Expansion (98 sites)","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - Feb1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t98","name":"EXOMINER++ Exoplanet Algorithm","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - Feb1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t99","name":"16th Finance Commission Recommendations","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - Feb1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t100","name":"Menstrual Health as a Fundamental Right","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - Feb1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t101","name":"Global AI Impact Summit in India","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - Feb1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t102","name":"India's New Astronomical Telescope in Ladakh","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - Feb1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t103","name":"No Trust Notice Against Lok Sabha Speaker","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - Feb1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t104","name":"Boeing P-8I Submarine Hunters Procurement","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - Feb1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t105","name":"India-Seychelles Maritime Relations","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - Feb1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t106","name":"India-Greece Joint Declaration on Defence","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - Feb1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t107","name":"India-Malaysia Economic & Digital Relations","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - Feb1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t108","name":"Frontier Nagaland Territorial Authority (FNTA)","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - Feb1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t109","name":"Data Protection Law (DPDP Act) and RTI","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - Feb2"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t110","name":"India-Israel Strategic Cooperation","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - Feb2"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t111","name":"PRAHAAR (National Counter-Terror Strategy)","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - Feb2"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t112","name":"India's Request to Become a Member of IEA","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - Feb2"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t113","name":"India-Brazil Diplomatic Relations","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - Feb2"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t114","name":"State of the World's Migratory Species 2026 Report","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - March1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t115","name":"West Asia Conflict (Israel-Hezbollah Tensions)","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - March1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t116","name":"India-Finland Strategic Partnership","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - March1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t117","name":"Maritime Governance and UNCLOS","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - March1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t118","name":"India-Canada Pacts on Uranium & Critical Minerals","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - March1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t119","name":"Af-Pak Border Tensions (Durand Line)","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - March1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t120","name":"Project Cheetah (Translocation from Botswana)","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - March1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t121","name":"India-EU Trade Deal and CBAM Accreditors","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - March1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t122","name":"Strait of Hormuz transit & India-Iran talks","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - March1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t123","name":"China's 'border defence' villages & LAC","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - March1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t124","name":"Passive Euthanasia Legal Framework","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - March1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t125","name":"Iran-Arab Ties & Gulf Geopolitics","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - March1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t126","name":"1st Lok Sabha Speaker Motion for Removal","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - March1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t127","name":"Decline in Migratory Wildlife (CMS Treaty)","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - March1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t128","name":"Constitutional Position of the Governor","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - March1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t129","name":"Legal Framework Governing Maritime Conflict","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - March1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t130","name":"NavIC Satellite Navigation System","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - March2"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t131","name":"Jnanpith Award","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - March2"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t132","name":"SHANTI Act 2025 (Nuclear Energy Policy)","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - March2"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t133","name":"Global Wellbeing (World Happiness Report 2026)","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - March2"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t134","name":"Transatlantic Tensions (NATO Article 5)","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - March2"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t135","name":"98th Academy Awards (Oscars) Milestones","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - March2"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t136","name":"India's GDP Debate (MoSPI Base Year Shift)","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - March2"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t137","name":"India's Goldilocks Era (Growth vs. Inflation)","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - March2"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t138","name":"14th WTO Ministerial Meet","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - March2"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t139","name":"RBI's Forex Reserve Management","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - March2"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t140","name":"Scheduled Caste Legal Status upon Conversion","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - March2"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t141","name":"Transgender Persons Amendment Bill, 2026","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - March2"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t142","name":"India's NDC targets (Emission Intensity & Non-fossils)","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - March2"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t143","name":"DAC clears 5 S-400 missile systems & transport aircraft","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - March2"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t144","name":"Rajya Sabha passes CAPF Bill","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - April1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t145","name":"India inducts third n-sub (INS Aridaman)","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - April1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t146","name":"Oil shock and El Nino (RBI Repo Rate / Inflation)","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - April1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t147","name":"UNFCCC COP Editions (COP28 & COP30)","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - April1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t148","name":"Removal Process for Judges in India","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - April1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t149","name":"Great Nicobar Island Holistic Development Project","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - April1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t150","name":"UNCLOS, Maritime Trade & Red Sea Chokepoints","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - April1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t151","name":"Bat Conservation & Zoonotic Viruses","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - April1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t152","name":"Rules-Based International Order & UN Reform","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - April1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t153","name":"Civil Nuclear Energy & FDI Policy","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - April1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t154","name":"Overseas Citizen of India (OCI) Scheme Extension","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - April1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t155","name":"Monsoon Forecast & El Nino","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - April1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t156","name":"Jan Vishwas (Amendment to Provisions) Bill, 2026","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - April1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t157","name":"BRICS Cooperation & Diplomacy","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - April1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t158","name":"Kalpakkam Fast Breeder Reactor Criticality","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - April1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t159","name":"India-Bangladesh Bilateral Relations","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - April1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t160","name":"RBI Monetary Policy Rates","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - April1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t161","name":"Women's Quota Reservation Bill & Delimitation","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - April1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t162","name":"16th Finance Commission","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - Budget Special"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t163","name":"Fiscal Consolidation","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - Budget Special"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t164","name":"Indian Semiconductor Mission (ISM) 2.0","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - Budget Special"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t165","name":"Biopharma SHAKTI","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - Budget Special"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t166","name":"Hi-Tech Tool Rooms in CPSEs","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - Budget Special"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t167","name":"Scheme for Container Manufacturing","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - Budget Special"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t168","name":"Integrated Program for Textiles","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - Budget Special"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t169","name":"Electronics Components Manufacturing Scheme","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - Budget Special"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t170","name":"Scheme to Revive 200 Legacy Industrial Clusters","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - Budget Special"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t171","name":"Strengthening Construction Equipment Manufacturing","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - Budget Special"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t172","name":"3 Dedicated Chemical Parks","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - Budget Special"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t173","name":"Scheme for Rare Earth Permanent Magnets","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - Budget Special"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t174","name":"Budget 2026-27 General Estimates and Targets","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - Budget Special"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t175","name":"Economic Survey 2025-26 Estimates and Growth","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - Economic Survey Special"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t191","name":"UAE's Exit from OPEC and OPEC+","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - May1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t194","name":"India's Edge-Seeking in US Trade Talks","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - June1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t195","name":"FIDE Chess Championship","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - June1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t196","name":"South Sudan Civil War & Humanitarian Crisis","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - June1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t197","name":"India-Venezuela Long-Term Energy Pacts","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - June1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t198","name":"India Scraps FII Capital Gains & Withholding Tax on Bonds","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - June1"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t199","name":"India-Nepal Relations","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - June2"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t200","name":"Project Glasswing (Anthropic AI Cybersecurity Initiative)","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - June2"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t201","name":"Oman-India CEPA","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - June2"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t202","name":"India-Indonesia Relations","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - June2"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t203","name":"New Bilateral Investment Model (BIT)","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - June2"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t204","name":"SIPRI Report 2026","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - June2"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t205","name":"Shiv Shakti Point - Lunar Soil & Antarctic Meteorite","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - June2"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t206","name":"Human Contribution to Global Warming Highest Ever in 2025","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - June2"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t207","name":"Workers' Remittances Cross $100 Billion in FY26","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - June2"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t208","name":"11th Governing Council Meeting of NITI Aayog (2026)","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - June2"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t209","name":"India Summons Top US Diplomat (June 2026)","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - June2"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t210","name":"India's Ties with France (2026)","category":"CLAT Post Magazine","sources":["CLAT Post Magazine - June2"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"t211","name":"Defence 1 & 2","category":"GK Fiesta","sources":["GK Fiesta Test 1 (Class)","GK Mega Fiesta 1 (recap of Test 1)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t212","name":"MGNREGA 1 & 2","category":"GK Fiesta","sources":["GK Fiesta Test 1 (Class)","GK Mega Fiesta 1 (recap of Test 1)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t213","name":"Global Risk Report","category":"GK Fiesta","sources":["GK Fiesta Test 1 (Class)","GK Mega Fiesta 1 (recap of Test 1)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t214","name":"Budget","category":"GK Fiesta","sources":["GK Fiesta Test 1 (Class/YouTube)","GK Mega Fiesta 1 (recap of Test 1)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t215","name":"Iran Crisis","category":"GK Fiesta","sources":["GK Fiesta Test 1 (YouTube)","GK Fiesta Test 8 (Class)","GK Mega Fiesta 1 (recap of Test 1)","GK Mega Fiesta 2 (recap of Test 8)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t216","name":"Trump Greenland Issue","category":"GK Fiesta","sources":["GK Fiesta Test 1 (YouTube)","GK Mega Fiesta 1 (recap of Test 1)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t217","name":"BlueBird Block 2","category":"GK Fiesta","sources":["GK Fiesta Test 1 (Jan CLAT Post+)","GK Mega Fiesta 1 (recap of Test 1)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t218","name":"Export Preparedness Index","category":"GK Fiesta","sources":["GK Fiesta Test 1 (Jan CLAT Post+)","GK Mega Fiesta 1 (recap of Test 1)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t219","name":"New START Treaty Ends","category":"GK Fiesta","sources":["GK Fiesta Test 1 (Feb Part A CLAT Post+)","GK Mega Fiesta 1 (recap of Test 1)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t220","name":"India-GCC Final FTA Terms of Reference","category":"GK Fiesta","sources":["GK Fiesta Test 1 (Feb Part A CLAT Post+)","GK Mega Fiesta 1 (recap of Test 1)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t221","name":"Free Movement Regime","category":"GK Fiesta","sources":["GK Fiesta Test 2 (Hindu Analysis)","GK Mega Fiesta 1 (recap of Test 2)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t222","name":"MPLADS Scheme","category":"GK Fiesta","sources":["GK Fiesta Test 2 (Class)","GK Mega Fiesta 1 (recap of Test 2)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t223","name":"Model Code of Conduct 1 & 2","category":"GK Fiesta","sources":["GK Fiesta Test 2 (Class)","GK Mega Fiesta 1 (recap of Test 2)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t224","name":"Unlawful Activities (Prevention) Act","category":"GK Fiesta","sources":["GK Fiesta Test 2 (Class/CLAT Post Jan)","GK Mega Fiesta 1 (recap of Test 2)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t225","name":"Social Media Ban","category":"GK Fiesta","sources":["GK Fiesta Test 2 (YouTube)","GK Mega Fiesta 1 (recap of Test 2)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t226","name":"ISRO Part 1","category":"GK Fiesta","sources":["GK Fiesta Test 2 (Class)","GK Fiesta Test 3 (Class)","GK Mega Fiesta 1 (recap of Test 2)","GK Mega Fiesta 1 (recap of Test 3)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t227","name":"Board of Peace for Gaza","category":"GK Fiesta","sources":["GK Fiesta Test 2 (CLAT Post Jan)","GK Mega Fiesta 1 (recap of Test 2)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t228","name":"Bharat Taxi Launched","category":"GK Fiesta","sources":["GK Fiesta Test 2 (CLAT Post Feb A)","GK Mega Fiesta 1 (recap of Test 2)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t229","name":"16th Finance Commission Submits Report","category":"GK Fiesta","sources":["GK Fiesta Test 2 (CLAT Post Feb A)","GK Mega Fiesta 1 (recap of Test 2)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t230","name":"India Adds Two Ramsar Sites; Total Reaches 98","category":"GK Fiesta","sources":["GK Fiesta Test 2 (CLAT Post Feb A)","GK Mega Fiesta 1 (recap of Test 2)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t231","name":"SC Status only for Hindus, Sikhs and Buddhists","category":"GK Fiesta","sources":["GK Fiesta Test 3 (Hindu Analysis)","GK Mega Fiesta 1 (recap of Test 3)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t232","name":"Supreme Court on Paid Maternity Leave","category":"GK Fiesta","sources":["GK Fiesta Test 3 (Hindu Analysis)","GK Mega Fiesta 1 (recap of Test 3)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t233","name":"Impeachment of Chief Election Commissioner","category":"GK Fiesta","sources":["GK Fiesta Test 3 (YouTube)","GK Mega Fiesta 1 (recap of Test 3)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t234","name":"Union Budget","category":"GK Fiesta","sources":["GK Fiesta Test 3 (CLAT Post Jan)","GK Mega Fiesta 1 (recap of Test 3)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t235","name":"WEF Global Risks Report 2026","category":"GK Fiesta","sources":["GK Fiesta Test 3 (CLAT Post Jan)","GK Mega Fiesta 1 (recap of Test 3)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t236","name":"80 Years of the Royal Indian Navy (RIN) Revolt 1946","category":"GK Fiesta","sources":["GK Fiesta Test 3 (CLAT Post Feb B)","GK Mega Fiesta 1 (recap of Test 3)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t237","name":"Pardoning Power of the President and Governor","category":"GK Fiesta","sources":["GK Fiesta Test 4 (Hindu Analysis)","GK Mega Fiesta 1 (recap of Test 4)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t238","name":"Non-Proliferation Treaty","category":"GK Fiesta","sources":["GK Fiesta Test 4 (Hindu Analysis)","GK Mega Fiesta 1 (recap of Test 4)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t239","name":"FATF Reports - India's Action Against Fraud Entities","category":"GK Fiesta","sources":["GK Fiesta Test 4 (Hindu Analysis)","GK Mega Fiesta 1 (recap of Test 4)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t240","name":"Israel-Iran Part-1","category":"GK Fiesta","sources":["GK Fiesta Test 4 (Class)","GK Fiesta Test 5 (Class)","GK Mega Fiesta 1 (recap of Test 4)","GK Mega Fiesta 1 (recap of Test 5)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t241","name":"Kunal Kamra vs Sahyog Portal","category":"GK Fiesta","sources":["GK Fiesta Test 4 (CLAT Post Feb A)","GK Mega Fiesta 1 (recap of Test 4)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t242","name":"Iran Temporarily Closes the Strait of Hormuz","category":"GK Fiesta","sources":["GK Fiesta Test 4 (CLAT Post Feb B)","GK Mega Fiesta 1 (recap of Test 4)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t243","name":"PM's Visit to Israel and India-Israel Relations","category":"GK Fiesta","sources":["GK Fiesta Test 4 (CLAT Post Feb B)","GK Mega Fiesta 1 (recap of Test 4)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t244","name":"Malda Crisis: SC Slams Bengal Government","category":"GK Fiesta","sources":["GK Fiesta Test 4 (YouTube)","GK Mega Fiesta 1 (recap of Test 4)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t245","name":"Monetary Policy Committee of RBI","category":"GK Fiesta","sources":["GK Fiesta Test 5 (The Hindu)","GK Mega Fiesta 1 (recap of Test 5)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t246","name":"Justice Yashwant Verma Case","category":"GK Fiesta","sources":["GK Fiesta Test 5 (The Hindu)","GK Mega Fiesta 1 (recap of Test 5)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t247","name":"Custodial Death Case","category":"GK Fiesta","sources":["GK Fiesta Test 5 (YouTube)","GK Mega Fiesta 1 (recap of Test 5)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t248","name":"FCRA Part-1","category":"GK Fiesta","sources":["GK Fiesta Test 5 (Class)","GK Fiesta Test 6 (Class)","GK Mega Fiesta 1 (recap of Test 5)","GK Mega Fiesta 2 (recap of Test 6)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t249","name":"Transgender Person Bill 2026","category":"GK Fiesta","sources":["GK Fiesta Test 5 (YouTube)","GK Mega Fiesta 1 (recap of Test 5)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t250","name":"India Wins T20 WC 2026","category":"GK Fiesta","sources":["GK Fiesta Test 5 (CLAT Post March A)","GK Mega Fiesta 1 (recap of Test 5)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t251","name":"International Women's Day","category":"GK Fiesta","sources":["GK Fiesta Test 5 (CLAT Post March A)","GK Mega Fiesta 1 (recap of Test 5)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t252","name":"Cabinet Extension of Jal Jeevan Mission","category":"GK Fiesta","sources":["GK Fiesta Test 5 (CLAT Post March A)","GK Mega Fiesta 1 (recap of Test 5)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t253","name":"Durand Line Dispute","category":"GK Fiesta","sources":["GK Fiesta Test 5 (CLAT Post March A)","GK Mega Fiesta 1 (recap of Test 5)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t254","name":"Defection Law Explained","category":"GK Fiesta","sources":["GK Fiesta Test 6 (YouTube)","GK Mega Fiesta 2 (recap of Test 6)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t255","name":"Artemis 2 First Crewed Moon Mission","category":"GK Fiesta","sources":["GK Fiesta Test 6 (YouTube)","GK Mega Fiesta 2 (recap of Test 6)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t256","name":"Dr. B. R. Ambedkar Birth Anniversary","category":"GK Fiesta","sources":["GK Fiesta Test 6 (The Hindu)","GK Mega Fiesta 2 (recap of Test 6)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t257","name":"Israel-Palestine-Iran: First & Second Intifada, Oslo Accord","category":"GK Fiesta","sources":["GK Fiesta Test 6 (Class)","GK Mega Fiesta 2 (recap of Test 6)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t258","name":"Karnataka & AP Social Media Ban for Minors","category":"GK Fiesta","sources":["GK Fiesta Test 6 (CLAT Post March A)","GK Mega Fiesta 2 (recap of Test 6)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t259","name":"NITI Aayog-JICA Cooperation on SDGs","category":"GK Fiesta","sources":["GK Fiesta Test 6 (CLAT Post March A)","GK Mega Fiesta 2 (recap of Test 6)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t260","name":"Statehood & Sixth Schedule Demand in Ladakh","category":"GK Fiesta","sources":["GK Fiesta Test 6 (CLAT Post March B)","GK Mega Fiesta 2 (recap of Test 6)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t261","name":"World Water Day 2026","category":"GK Fiesta","sources":["GK Fiesta Test 6 (CLAT Post March B)","GK Mega Fiesta 2 (recap of Test 6)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t262","name":"60th Jnanpith Award","category":"GK Fiesta","sources":["GK Fiesta Test 6 (CLAT Post March B)","GK Mega Fiesta 2 (recap of Test 6)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t263","name":"Census","category":"GK Fiesta","sources":["GK Fiesta Test 7 (Class)","GK Mega Fiesta 2 (recap of Test 7)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t264","name":"Delimitation Part-1","category":"GK Fiesta","sources":["GK Fiesta Test 7 (Class)","GK Mega Fiesta 2 (recap of Test 7)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t265","name":"Anti-Defection Law","category":"GK Fiesta","sources":["GK Fiesta Test 7 (Hindu Analysis)","GK Fiesta Test 10 (Class)","GK Mega Fiesta 2 (recap of Test 7)","GK Mega Fiesta 2 (recap of Test 10)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t266","name":"NavIC Satellite Loses Its Atomic Clock","category":"GK Fiesta","sources":["GK Fiesta Test 7 (CLAT Post March 2)","GK Mega Fiesta 2 (recap of Test 7)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t267","name":"Global Terrorism Index 2026","category":"GK Fiesta","sources":["GK Fiesta Test 7 (CLAT Post March 2)","GK Mega Fiesta 2 (recap of Test 7)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t268","name":"V.O. Chidambaranar Port: India's First Digital Twin Port","category":"GK Fiesta","sources":["GK Fiesta Test 7 (CLAT Post March 2)","GK Mega Fiesta 2 (recap of Test 7)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t269","name":"Fiscal Health Index 2026","category":"GK Fiesta","sources":["GK Fiesta Test 7 (CLAT Post March 2)","GK Mega Fiesta 2 (recap of Test 7)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t270","name":"First Inter-State Initiative for Great Indian Bustard","category":"GK Fiesta","sources":["GK Fiesta Test 7 (CLAT Post March 2)","GK Mega Fiesta 2 (recap of Test 7)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t271","name":"Rupee Value Up or Down","category":"GK Fiesta","sources":["GK Fiesta Test 8 (YouTube)","GK Mega Fiesta 2 (recap of Test 8)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t272","name":"Medical Termination of Pregnancy Act, 1971","category":"GK Fiesta","sources":["GK Fiesta Test 8 (Hindu Analysis)","GK Mega Fiesta 2 (recap of Test 8)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t273","name":"Naxalism - Part 2: Operation Green Hunt to Operation Kagar","category":"GK Fiesta","sources":["GK Fiesta Test 8 (Class)","GK Mega Fiesta 2 (recap of Test 8)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t274","name":"UAE Announces Exit from OPEC","category":"GK Fiesta","sources":["GK Fiesta Test 8 (Hindu Analysis)","GK Mega Fiesta 2 (recap of Test 8)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t275","name":"FATF Highlights India's Actions Against Offshore VASPs","category":"GK Fiesta","sources":["GK Fiesta Test 8 (CLAT Post April 1)","GK Mega Fiesta 2 (recap of Test 8)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t276","name":"Custodial Deaths in India - Sathankulam Case Developments","category":"GK Fiesta","sources":["GK Fiesta Test 8 (CLAT Post April 1)","GK Mega Fiesta 2 (recap of Test 8)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t277","name":"INS Aridaman and India's Naval Warships","category":"GK Fiesta","sources":["GK Fiesta Test 8 (CLAT Post April 1)","GK Mega Fiesta 2 (recap of Test 8)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t278","name":"Punjab-Rajasthan Water Dispute","category":"GK Fiesta","sources":["GK Fiesta Test 8 (CLAT Post March 2)","GK Mega Fiesta 2 (recap of Test 8)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t279","name":"Artemis II Mission","category":"GK Fiesta","sources":["GK Fiesta Test 8 (CLAT Post April 1)","Mock 14","GK Mega Fiesta 2 (recap of Test 8)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t280","name":"International Big Cat Alliance First Summit","category":"GK Fiesta","sources":["GK Fiesta Test 9 (The Hindu)","GK Mega Fiesta 2 (recap of Test 9)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t281","name":"Israel-Palestine: 2023 to Islamabad Accord","category":"GK Fiesta","sources":["GK Fiesta Test 9 (Class)","GK Mega Fiesta 2 (recap of Test 9)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t282","name":"Israel-Palestine: Sykes-Picot Agreement, Balfour Declaration & Resolution 181","category":"GK Fiesta","sources":["GK Fiesta Test 9 (Class)","GK Mega Fiesta 2 (recap of Test 9)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t283","name":"PFBR at Kalpakkam Attains Criticality","category":"GK Fiesta","sources":["GK Fiesta Test 9 (CLAT Post April 1)","GK Mega Fiesta 2 (recap of Test 9)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t284","name":"India's 1,000-km Quantum Communication Breakthrough","category":"GK Fiesta","sources":["GK Fiesta Test 9 (CLAT Post April 1)","GK Mega Fiesta 2 (recap of Test 9)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t285","name":"Defeat of the Constitution (131st Amendment) Bill, 2026","category":"GK Fiesta","sources":["GK Fiesta Test 9 (CLAT Post April 2)","Mock 13","GK Mega Fiesta 2 (recap of Test 9)","CLAT Post Magazine - April2"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t286","name":"IT Rules Amendments 2026: India's Digital Censorship Push","category":"GK Fiesta","sources":["GK Fiesta Test 9 (CLAT Post April 2)","GK Mega Fiesta 2 (recap of Test 9)","CLAT Post Magazine - April2"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t287","name":"10 Years of the Unified Payments Interface","category":"GK Fiesta","sources":["GK Fiesta Test 9 (CLAT Post April 2)","GK Mega Fiesta 2 (recap of Test 9)","CLAT Post Magazine - April2"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t288","name":"NEET Exam Cancelled & NTA","category":"GK Fiesta","sources":["GK Fiesta Test 10 (Hindu Analysis)","GK Mega Fiesta 2 (recap of Test 10)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t289","name":"CBI Director Appointment","category":"GK Fiesta","sources":["GK Fiesta Test 10 (Hindu Analysis)","GK Mega Fiesta 2 (recap of Test 10)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t290","name":"Workers' Unrest in Noida and Labour Reforms","category":"GK Fiesta","sources":["GK Fiesta Test 10 (CLAT Post April 2)","GK Mega Fiesta 2 (recap of Test 10)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t291","name":"Does Israel's 'Yellow Line' Violate the Lebanon Ceasefire?","category":"GK Fiesta","sources":["GK Fiesta Test 10 (CLAT Post April 2)","GK Mega Fiesta 2 (recap of Test 10)","CLAT Post Magazine - April2"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t292","name":"Promotion and Regulation of Online Gaming Rules, 2026","category":"GK Fiesta","sources":["GK Fiesta Test 10 (CLAT Post April 2)","GK Mega Fiesta 2 (recap of Test 10)","CLAT Post Magazine - April2"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t293","name":"OCI Card Eligibility Expansion in Sri Lanka","category":"GK Fiesta","sources":["GK Fiesta Test 10 (CLAT Post April 2)","GK Mega Fiesta 2 (recap of Test 10)","CLAT Post Magazine - April2"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t294","name":"IVF in Vegetative State","category":"GK Fiesta","sources":["GK Fiesta Test 10 (CLAT Post April 2)","GK Mega Fiesta 2 (recap of Test 10)","CLAT Post Magazine - April2"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t295","name":"UN Part 1","category":"GK Fiesta","sources":["GK Fiesta Test 11 (Class)","GK Fiesta Test 12 (Class)","GK Mega Fiesta 3 (recap of Test 11)","GK Mega Fiesta 3 (recap of Test 12)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t296","name":"500 Years of Battle of Panipat","category":"GK Fiesta","sources":["GK Fiesta Test 11 (Class)","GK Fiesta Test 13 (Class)","GK Mega Fiesta 3 (recap of Test 11)","GK Mega Fiesta 3 (recap of Test 13)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t297","name":"Rohingya Leaving West Bengal","category":"GK Fiesta","sources":["GK Fiesta Test 11 (YouTube)","GK Mega Fiesta 3 (recap of Test 11)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t298","name":"Government Changes Base Year of WPI, Renames to PPI","category":"GK Fiesta","sources":["GK Fiesta Test 11 (Hindu Analysis)","GK Mega Fiesta 3 (recap of Test 11)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t299","name":"India Nordic Summit 2026","category":"GK Fiesta","sources":["GK Fiesta Test 11 (CLAT Post May 2)","GK Mega Fiesta 3 (recap of Test 11)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t300","name":"2026 USA-China Summit","category":"GK Fiesta","sources":["GK Fiesta Test 11 (CLAT Post May 2)","GK Mega Fiesta 3 (recap of Test 11)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t301","name":"Draft Rule for VB G RAM G Released","category":"GK Fiesta","sources":["GK Fiesta Test 11 (CLAT Post May 2)","GK Mega Fiesta 3 (recap of Test 11)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t302","name":"NS Raja Subramani Appointed 3rd CDS","category":"GK Fiesta","sources":["GK Fiesta Test 11 (CLAT Post May 2)","GK Mega Fiesta 3 (recap of Test 11)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t303","name":"G-7","category":"GK Fiesta","sources":["GK Fiesta Test 12 (Class)","GK Mega Fiesta 3 (recap of Test 12)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t304","name":"Rajya Sabha Election","category":"GK Fiesta","sources":["GK Fiesta Test 12 (Hindu Analysis)","GK Mega Fiesta 3 (recap of Test 12)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t305","name":"Aravalli Range","category":"GK Fiesta","sources":["GK Fiesta Test 12 (IE Explained)","GK Mega Fiesta 3 (recap of Test 12)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t306","name":"CIC Exemption of BCCI from the RTI Act","category":"GK Fiesta","sources":["GK Fiesta Test 12 (CLAT Post May 2)","GK Mega Fiesta 3 (recap of Test 12)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t307","name":"NEET UG Paper Leak","category":"GK Fiesta","sources":["GK Fiesta Test 12 (CLAT Post May 2)","GK Mega Fiesta 3 (recap of Test 12)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t308","name":"International Booker Prize","category":"GK Fiesta","sources":["GK Fiesta Test 12 (CLAT Post May 2)","GK Mega Fiesta 3 (recap of Test 12)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t309","name":"Indian Economy","category":"GK Fiesta","sources":["GK Fiesta Test 13 (Class)","GK Fiesta Test 14 (Class)","GK Mega Fiesta 3 (recap of Test 13)","GK Mega Fiesta 3 (recap of Test 14)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t310","name":"USA-Iran Peace Deal","category":"GK Fiesta","sources":["GK Fiesta Test 13 (YouTube)","GK Mega Fiesta 3 (recap of Test 13)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t311","name":"Article 164(4) and Ministerial Reappointment","category":"GK Fiesta","sources":["GK Fiesta Test 13 (YouTube)","GK Mega Fiesta 3 (recap of Test 13)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t312","name":"Telegram App Ban","category":"GK Fiesta","sources":["GK Fiesta Test 13 (Hindu Analysis)","GK Mega Fiesta 3 (recap of Test 13)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t313","name":"Zo Zila Tunnel","category":"GK Fiesta","sources":["GK Fiesta Test 13 (IE Explained)","GK Mega Fiesta 3 (recap of Test 13)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t314","name":"PM Visit to Somnath Temple","category":"GK Fiesta","sources":["GK Fiesta Test 13 (CLAT Post May 2)","GK Mega Fiesta 3 (recap of Test 13)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t315","name":"India Rejects PCA Decision on Indus Water Treaty","category":"GK Fiesta","sources":["GK Fiesta Test 13 (CLAT Post May 2)","GK Mega Fiesta 3 (recap of Test 13)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t316","name":"Miscellaneous 01","category":"GK Fiesta","sources":["GK Fiesta Test 14 (Class)","GK Mega Fiesta 3 (recap of Test 14)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t317","name":"Miscellaneous 02","category":"GK Fiesta","sources":["GK Fiesta Test 14 (Class)","GK Mega Fiesta 3 (recap of Test 14)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t318","name":"Kier Starmer Resigns","category":"GK Fiesta","sources":["GK Fiesta Test 14 (YouTube)","GK Mega Fiesta 3 (recap of Test 14)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t319","name":"Russia-Ukraine Dispute History","category":"GK Fiesta","sources":["GK Fiesta Test 14 (Hindu Analysis)","GK Mega Fiesta 3 (recap of Test 14)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t320","name":"Mohenjodaro Dancing Figure Controversy","category":"GK Fiesta","sources":["GK Fiesta Test 14 (IE Explained)","GK Mega Fiesta 3 (recap of Test 14)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t321","name":"Jai Prakash Narain Bird Sanctuary - India's 100th Ramsar Site","category":"GK Fiesta","sources":["GK Fiesta Test 14 (CLAT Post June 1)","GK Mega Fiesta 3 (recap of Test 14)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t322","name":"National Family Health Survey-6 (2023-24)","category":"GK Fiesta","sources":["GK Fiesta Test 14 (CLAT Post June 1)","GK Mega Fiesta 3 (recap of Test 14)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t323","name":"Assam UCC Bill 2026","category":"GK Fiesta","sources":["GK Fiesta Test 14 (CLAT Post June 1)","GK Mega Fiesta 3 (recap of Test 14)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t324","name":"Delhi HC Recognises Right to Be Forgotten","category":"GK Fiesta","sources":["GK Fiesta Test 14 (CLAT Post June 1)","GK Mega Fiesta 3 (recap of Test 14)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t325","name":"Plea Claim Silent Compulsion in E20 Petrol Roll Out","category":"GK Fiesta","sources":["GK Fiesta Test 15 (Hindu Analysis)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t326","name":"Form Used in Census - Open Column for Caste","category":"GK Fiesta","sources":["GK Fiesta Test 15 (Hindu Analysis)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t327","name":"Ram Temple Trust First CEO Appointed","category":"GK Fiesta","sources":["GK Fiesta Test 15 (YouTube)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t328","name":"India-Seychelles Relations","category":"GK Fiesta","sources":["GK Fiesta Test 15 (YouTube)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t329","name":"National Emergency - Part 1","category":"GK Fiesta","sources":["GK Fiesta Test 15 (Class)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t330","name":"WPI Base Year Revised to 2022-23 and Producer Price Index","category":"GK Fiesta","sources":["GK Fiesta Test 15 (CLAT Post June A)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t331","name":"Amendments to the Immigration and Foreigners Rules, 2025","category":"GK Fiesta","sources":["GK Fiesta Test 15 (CLAT Post June A)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t332","name":"Supreme Court Upholds GST on Online Gaming","category":"GK Fiesta","sources":["GK Fiesta Test 15 (CLAT Post June A)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t333","name":"Telegram Ban and Section 69A of the IT Act, 2000","category":"GK Fiesta","sources":["GK Fiesta Test 15 (CLAT Post June B)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t334","name":"Ancient History & Medieval History","category":"GK Fiesta","sources":["GK Fiesta Test 16 (Class)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t335","name":"Miscellaneous Static GK - Books & Authors","category":"GK Fiesta","sources":["GK Fiesta Test 16 (Class)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t336","name":"Military Exercises","category":"GK Fiesta","sources":["GK Fiesta Test 16 (Class)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t337","name":"International Organisations","category":"GK Fiesta","sources":["GK Fiesta Test 16 (Class)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t338","name":"G20 Summit 2025 (African soil)","category":"Mock","sources":["Mock 1"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t339","name":"ICC Women's ODI World Cup 2025","category":"Mock","sources":["Mock 1"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t340","name":"India-Middle East-Europe Economic Corridor (IMEC) & Chabahar Port","category":"Mock","sources":["Mock 1"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t341","name":"India-Canada diplomatic tensions","category":"Mock","sources":["Mock 1"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t342","name":"Operation Sindoor, BIMSTEC, NAM, Indus rivers","category":"Mock","sources":["Mock 1"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t343","name":"17th BRICS Summit, Rio de Janeiro","category":"Mock","sources":["Mock 2"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t344","name":"US economic nationalism under Trump","category":"Mock","sources":["Mock 2"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t345","name":"Himalayan ecology/glacial disaster","category":"Mock","sources":["Mock 2"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t346","name":"Neeraj Chopra / sports achievement 2025","category":"Mock","sources":["Mock 2"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t347","name":"Maha Kumbh Prayagraj stampede tragedy","category":"Mock","sources":["Mock 2"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t348","name":"Delhi bomb blast & White-Collar Terrorism","category":"Mock","sources":["Mock 3"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t349","name":"Kho Kho World Cup 2025","category":"Mock","sources":["Mock 3"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t350","name":"Air India Boeing 787 crash","category":"Mock","sources":["Mock 3"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t351","name":"6th BIMSTEC Summit (Bangkok Vision 2030)","category":"Mock","sources":["Mock 3"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t352","name":"India-China relations thaw at SCO Summit 2025","category":"Mock","sources":["Mock 3"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t353","name":"Trump on India-US-China-SCO dynamics","category":"Mock","sources":["Mock 4"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t354","name":"RBI Monetary Policy 2026 (Goldilocks phase)","category":"Mock","sources":["Mock 4"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t355","name":"G20 evolution & African Union's permanent membership","category":"Mock","sources":["Mock 4"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t356","name":"COP30 Climate Conference","category":"Mock","sources":["Mock 4"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t357","name":"Commonwealth Games 2030 host announcement","category":"Mock","sources":["Mock 4"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t358","name":"Padma Awards 2026","category":"Mock","sources":["Mock 5"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t359","name":"Republic Day Parade 2026","category":"Mock","sources":["Mock 5"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t360","name":"India-EU Free Trade Agreement","category":"Mock","sources":["Mock 5"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t361","name":"Seismic zoning/earthquake risk mapping in India","category":"Mock","sources":["Mock 5"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t362","name":"Nipah virus outbreaks","category":"Mock","sources":["Mock 5"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t363","name":"Union Budget 2026-27","category":"Mock","sources":["Mock 6"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t364","name":"PESA Act","category":"Mock","sources":["Mock 6"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t365","name":"Greenland geopolitics","category":"Mock","sources":["Mock 6"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t366","name":"European Union integration (Eurozone, treaties)","category":"Mock","sources":["Mock 6"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t367","name":"US withdrawal from WHO","category":"Mock","sources":["Mock 6"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t368","name":"SHANTI Act, 2025","category":"Mock","sources":["Mock 7"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t369","name":"Lokpal - Parliamentary Standing Committee report","category":"Mock","sources":["Mock 7"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t370","name":"India-Africa relations (PM's Ethiopia visit)","category":"Mock","sources":["Mock 7"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t371","name":"Biological Weapons Convention (BWC)","category":"Mock","sources":["Mock 7"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t372","name":"Infrastructure Bonds (Bank of India fundraise)","category":"Mock","sources":["Mock 7"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t373","name":"Special Summary Revision (SIR) of Electoral Rolls","category":"Mock","sources":["Mock 8"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t374","name":"Pax Silica Declaration","category":"Mock","sources":["Mock 8"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t375","name":"India AI Impact Summit 2026","category":"Mock","sources":["Mock 8"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t376","name":"Iran political turbulence","category":"Mock","sources":["Mock 8"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t377","name":"Global Risks Report 2026","category":"Mock","sources":["Mock 8"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t378","name":"India's Mineral Security & Strategic Resource Diplomacy","category":"Mock","sources":["Mock 9"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t379","name":"Economic Survey 2025-26","category":"Mock","sources":["Mock 9"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t380","name":"Shaksgam Valley Dispute","category":"Mock","sources":["Mock 9"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t381","name":"India's Doping Crisis & Anti-Doping Governance","category":"Mock","sources":["Mock 9"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t382","name":"India's Indigenous Microprocessor Journey (DHRUV64)","category":"Mock","sources":["Mock 9"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t383","name":"Iran-Israel-US conflict 2026","category":"Mock","sources":["Mock 10"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t384","name":"National Quantum Mission","category":"Mock","sources":["Mock 10"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t385","name":"16th Finance Commission report","category":"Mock","sources":["Mock 10"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t386","name":"UAPA & Delhi riots conspiracy bail ruling","category":"Mock","sources":["Mock 10"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t387","name":"Ramsar Wetlands & Montreux Record","category":"Mock","sources":["Mock 10"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t388","name":"End-of-Life Care Jurisprudence","category":"Mock","sources":["Mock 11"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t389","name":"Removal of CEC process","category":"Mock","sources":["Mock 11"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t390","name":"AI & Linguistic Sovereignty (BHASHINI)","category":"Mock","sources":["Mock 11"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t391","name":"Digital Governance (DPDPA 2023)","category":"Mock","sources":["Mock 11"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t392","name":"Jal Jeevan Mission 2.0","category":"Mock","sources":["Mock 11"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t393","name":"150 Years of Vande Mataram","category":"Mock","sources":["Mock 12"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t394","name":"Israel-Iran Conflict (Operation Midnight Hammer)","category":"Mock","sources":["Mock 12"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t395","name":"Custodial Death (Sattankulam case)","category":"Mock","sources":["Mock 12"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t396","name":"Yellow Line (Israel-Syria/Golan Heights)","category":"Mock","sources":["Mock 13"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t397","name":"Trump-China Visit (Beijing Summit)","category":"Mock","sources":["Mock 13"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t398","name":"UPI 10 Years","category":"Mock","sources":["Mock 13"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t399","name":"El Nino (ENSO Cycle)","category":"Mock","sources":["Mock 13"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t400","name":"Identity in modern India","category":"Mock","sources":["Mock 14"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t401","name":"Kerala to Keralam renaming","category":"Mock","sources":["Mock 14"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t402","name":"Ashokan epigraphy - Keralaputra","category":"Mock","sources":["Mock 14"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t403","name":"NEET Paper Leak & NTA","category":"Mock","sources":["Mock 14"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t404","name":"Curbing Gold and Oil Imports","category":"Mock","sources":["Mock 14"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t405","name":"Religious Site Disputes","category":"Mock","sources":["Mock 14"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t406","name":"Indigenization of Gaganyaan's ECLSS","category":"Mock","sources":["Mock 15"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t407","name":"IMEC Portal","category":"Mock","sources":["Mock 15"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t408","name":"Strait of Hormuz Crisis","category":"Mock","sources":["Mock 15"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t409","name":"Political Party under the Tenth Schedule","category":"Mock","sources":["Mock 15"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t410","name":"Global AI Safety Summit","category":"Mock","sources":["Mock 15"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t411","name":"Pakistan's 27th / India's 39th Constitutional Amendment","category":"Mock","sources":["Mock 15"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t412","name":"Wetlands, Biodiversity and International Conservation","category":"Mock","sources":["Mock 16"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t413","name":"SC on Menstrual Leave","category":"Mock","sources":["Mock 16"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t414","name":"Labour Law - Noida industrial unrest","category":"Mock","sources":["Mock 16"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t415","name":"New Series of GDP","category":"Mock","sources":["Mock 16"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"t416","name":"Nepal India Border Dispute","category":"Mock","sources":["Mock 16"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_january_1","name":"CLAT Post January One-Liners - Part 1/10 (pg 1-9)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - January (Important One-Liners section, pg 1-9)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_january_2","name":"CLAT Post January One-Liners - Part 2/10 (pg 10-18)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - January (Important One-Liners section, pg 10-18)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_january_3","name":"CLAT Post January One-Liners - Part 3/10 (pg 19-27)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - January (Important One-Liners section, pg 19-27)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_january_4","name":"CLAT Post January One-Liners - Part 4/10 (pg 28-36)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - January (Important One-Liners section, pg 28-36)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_january_5","name":"CLAT Post January One-Liners - Part 5/10 (pg 37-45)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - January (Important One-Liners section, pg 37-45)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_january_6","name":"CLAT Post January One-Liners - Part 6/10 (pg 46-54)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - January (Important One-Liners section, pg 46-54)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_january_7","name":"CLAT Post January One-Liners - Part 7/10 (pg 55-62)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - January (Important One-Liners section, pg 55-62)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_january_8","name":"CLAT Post January One-Liners - Part 8/10 (pg 63-70)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - January (Important One-Liners section, pg 63-70)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_january_9","name":"CLAT Post January One-Liners - Part 9/10 (pg 71-78)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - January (Important One-Liners section, pg 71-78)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_january_10","name":"CLAT Post January One-Liners - Part 10/10 (pg 79-86)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - January (Important One-Liners section, pg 79-86)"],"status":"pending","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_feb1_1","name":"CLAT Post Feb1 One-Liners - Part 1/2 (pg 1-6)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - Feb1 (Important One-Liners section, pg 1-6)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_feb1_2","name":"CLAT Post Feb1 One-Liners - Part 2/2 (pg 7-11)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - Feb1 (Important One-Liners section, pg 7-11)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_feb2_1","name":"CLAT Post Feb2 One-Liners - Part 1/2 (pg 1-6)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - Feb2 (Important One-Liners section, pg 1-6)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_feb2_2","name":"CLAT Post Feb2 One-Liners - Part 2/2 (pg 7-12)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - Feb2 (Important One-Liners section, pg 7-12)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_march1_1","name":"CLAT Post March1 One-Liners - Part 1/2 (pg 1-9)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - March1 (Important One-Liners section, pg 1-9)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_march1_2","name":"CLAT Post March1 One-Liners - Part 2/2 (pg 10-17)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - March1 (Important One-Liners section, pg 10-17)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_march2_1","name":"CLAT Post March2 One-Liners - Part 1/4 (pg 1-9)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - March2 (Important One-Liners section, pg 1-9)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_march2_2","name":"CLAT Post March2 One-Liners - Part 2/4 (pg 10-18)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - March2 (Important One-Liners section, pg 10-18)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_march2_3","name":"CLAT Post March2 One-Liners - Part 3/4 (pg 19-27)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - March2 (Important One-Liners section, pg 19-27)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_march2_4","name":"CLAT Post March2 One-Liners - Part 4/4 (pg 28-35)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - March2 (Important One-Liners section, pg 28-35)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_april1_1","name":"CLAT Post April1 One-Liners - Part 1/2 (pg 1-7)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - April1 (Important One-Liners section, pg 1-7)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_april1_2","name":"CLAT Post April1 One-Liners - Part 2/2 (pg 8-13)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - April1 (Important One-Liners section, pg 8-13)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_april2_1","name":"CLAT Post April2 One-Liners - Part 1/3 (pg 1-8)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - April2 (Important One-Liners section, pg 1-8)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_april2_2","name":"CLAT Post April2 One-Liners - Part 2/3 (pg 9-16)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - April2 (Important One-Liners section, pg 9-16)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_april2_3","name":"CLAT Post April2 One-Liners - Part 3/3 (pg 17-24)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - April2 (Important One-Liners section, pg 17-24)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_may1_1","name":"CLAT Post May1 One-Liners - Part 1/3 (pg 1-8)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - May1 (Important One-Liners section, pg 1-8)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_may1_2","name":"CLAT Post May1 One-Liners - Part 2/3 (pg 9-16)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - May1 (Important One-Liners section, pg 9-16)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_may1_3","name":"CLAT Post May1 One-Liners - Part 3/3 (pg 17-23)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - May1 (Important One-Liners section, pg 17-23)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_may2_1","name":"CLAT Post May2 One-Liners - Part 1/3 (pg 1-7)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - May2 (Important One-Liners section, pg 1-7)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_may2_2","name":"CLAT Post May2 One-Liners - Part 2/3 (pg 8-13)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - May2 (Important One-Liners section, pg 8-13)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_may2_3","name":"CLAT Post May2 One-Liners - Part 3/3 (pg 14-19)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - May2 (Important One-Liners section, pg 14-19)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_june1_1","name":"CLAT Post June1 One-Liners - Part 1/3 (pg 1-7)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - June1 (Important One-Liners section, pg 1-7)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_june1_2","name":"CLAT Post June1 One-Liners - Part 2/3 (pg 8-14)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - June1 (Important One-Liners section, pg 8-14)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_june1_3","name":"CLAT Post June1 One-Liners - Part 3/3 (pg 15-21)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - June1 (Important One-Liners section, pg 15-21)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_june2_1","name":"CLAT Post June2 One-Liners - Part 1/3 (pg 1-9)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - June2 (Important One-Liners section, pg 1-9)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_june2_2","name":"CLAT Post June2 One-Liners - Part 2/3 (pg 10-18)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - June2 (Important One-Liners section, pg 10-18)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null},{"id":"ol_june2_3","name":"CLAT Post June2 One-Liners - Part 3/3 (pg 19-26)","category":"Magazine One-Liners","sources":["CLAT Post Magazine - June2 (Important One-Liners section, pg 19-26)"],"status":"done","doneDate":null,"revisions":[],"nextDue":null}];
+
+const DEADLINE = "2026-11-16";
+const REPS_TARGET = 15;
+const DAILY_CAP_BACKLOG = 5;   // slots reserved for topics whose FIRST rep is still pending catch-up
+const DAILY_CAP_FRESH = 5;     // slots for topics already in active rotation (rep 2+)
+const STAGGER_DAYS = 38;
+
+const STORAGE_KEY = "gkTrackerState_v10";  // v10: Feb-June one-liner chunks marked done (only January was actually backlog)
+
+function baseGaps(n){
+  const gaps = [];
+  let g = 2;
+  for(let i=0;i<n;i++){
+    gaps.push(g);
+    g = Math.round(g * 1.35) + 1;
+  }
+  return gaps;
+}
+
+function computeSchedule(startDateStr, deadlineStr, repsTarget){
+  const start = new Date(startDateStr);
+  const deadline = new Date(deadlineStr);
+  const totalDays = Math.max(1, Math.round((deadline - start) / 86400000));
+  const gaps = baseGaps(repsTarget - 1);
+  const gapSum = gaps.reduce((a,b)=>a+b,0);
+  const scale = gapSum > 0 ? (totalDays / gapSum) : 1;
+  let cursor = 0;
+  const dates = [new Date(start)];
+  for(let i=0;i<gaps.length;i++){
+    cursor += gaps[i] * scale;
+    const d = new Date(start.getTime() + Math.round(cursor) * 86400000);
+    if(d > deadline) d.setTime(deadline.getTime());
+    dates.push(d);
+  }
+  return dates.map(d => d.toISOString().slice(0,10));
+}
+
+function todayStr(){
+  return new Date().toISOString().slice(0,10);
+}
+
+function addDays(dateStr, n){
+  const d = new Date(dateStr);
+  d.setDate(d.getDate()+n);
+  return d.toISOString().slice(0,10);
+}
+
+let state = null;
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return null;
+}
+
+function saveState(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
+}
+
+/* Interleave topics across categories (round-robin) before assigning stagger days,
+   so each day's starting cohort spans multiple subjects instead of whole categories
+   landing on consecutive days (which happens if the source list is category-blocked). */
+function interleaveByCategory(list){
+  const byCat = {};
+  list.forEach(t => { (byCat[t.category] = byCat[t.category]||[]).push(t); });
+  const cats = Object.keys(byCat);
+  const result = [];
+  let ci = 0;
+  let remaining = list.length;
+  while(remaining > 0){
+    const key = cats[ci % cats.length];
+    if(byCat[key].length > 0){
+      result.push(byCat[key].shift());
+      remaining--;
+    }
+    ci++;
+  }
+  return result;
+}
+
+/* Build a fresh topic (staggered if it's a seed 'done' topic, otherwise plain pending). */
+function buildFreshTopic(seedTopic, today){
+  const t = {...seedTopic};
+  if(t.status === 'done'){
+    t.doneDate = today;
+    t.schedule = computeSchedule(today, DEADLINE, REPS_TARGET);
+  } else {
+    t.doneDate = null;
+    t.schedule = null;
+  }
+  t.revisions = [];
+  t.repsDone = 0;
+  return t;
+}
+
+/* initState never wipes existing progress. On first-ever load it builds everything fresh
+   (with staggering so day-1 isn't overloaded). On every subsequent load, it keeps every
+   saved topic exactly as-is (revisions, checklists, merges, manual edits - untouched) and
+   only ADDS any seed topics that aren't already present (matched by id) - which is what
+   lets new magazine issues / classes / topics get added later without resetting anything. */
+function initState(){
+  const existing = loadState();
+  const today = todayStr();
+
+  if(!existing || !existing.topics || existing.topics.length === 0){
+    const topics = SEED_TOPICS.map(t => ({...t}));
+    const doneTopicsRaw = topics.filter(t => t.status === "done");
+    const doneTopics = interleaveByCategory(doneTopicsRaw);
+    const n = doneTopics.length;
+    doneTopics.forEach((t, idx) => {
+      const dayOffset = Math.floor((idx / n) * STAGGER_DAYS);
+      const startDate = addDays(today, dayOffset);
+      t.doneDate = startDate;
+      t.schedule = computeSchedule(startDate, DEADLINE, REPS_TARGET);
+      t.revisions = [];
+      t.repsDone = 0;
+    });
+    topics.forEach(t => {
+      if(t.status !== "done"){
+        t.doneDate = null;
+        t.schedule = null;
+        t.revisions = [];
+        t.repsDone = 0;
+      }
+    });
+    state = { topics, lastOpened: today };
+    saveState();
+    return;
+  }
+
+  // Merge path: keep everything existing, add only genuinely new seed topics.
+  const existingIds = new Set(existing.topics.map(t => t.id));
+  const newFromSeed = SEED_TOPICS.filter(t => !existingIds.has(t.id));
+  if(newFromSeed.length > 0){
+    const freshTopics = newFromSeed.map(t => buildFreshTopic(t, today));
+    // Stagger the new arrivals too, so a big batch of new content doesn't all land on one day.
+    const doneNew = interleaveByCategory(freshTopics.filter(t => t.status === 'done'));
+    const n = doneNew.length;
+    doneNew.forEach((t, idx) => {
+      const dayOffset = Math.floor((idx / n) * STAGGER_DAYS);
+      const startDate = addDays(today, dayOffset);
+      t.doneDate = startDate;
+      t.schedule = computeSchedule(startDate, DEADLINE, REPS_TARGET);
+    });
+    existing.topics = [...existing.topics, ...freshTopics];
+  }
+
+  // One-time self-repair: fix any topic whose next-due date was computed under the old
+  // (buggy) scheduling logic, where completing a rep could leave the following rep's
+  // due-date already in the past or today. This only touches FUTURE due-dates - it
+  // never removes or alters revisions/reps you've already logged.
+  existing.topics.forEach(t => {
+    if(t.status === 'done' && t.schedule && t.repsDone > 0 && t.repsDone < REPS_TARGET){
+      const nextDue = t.schedule[t.repsDone];
+      const lastCompletedDate = t.revisions[t.revisions.length - 1];
+      if(nextDue && lastCompletedDate && nextDue <= lastCompletedDate){
+        rescheduleRemaining(t, lastCompletedDate);
+      }
+    }
+  });
+
+  state = existing;
+  state.lastOpened = today;
+  saveState();
+}
+
+function getTopic(id){ return state.topics.find(t => t.id === id); }
+
+function markTopicDone(id){
+  const t = getTopic(id);
+  if(!t || t.status === "done") return;
+  const today = todayStr();
+  t.status = "done";
+  t.doneDate = today;
+  t.schedule = computeSchedule(today, DEADLINE, REPS_TARGET);
+  t.revisions = [];
+  t.repsDone = 0;
+  saveState();
+}
+
+function mergeTopics(keepId, mergeId){
+  const keep = getTopic(keepId);
+  const merge = getTopic(mergeId);
+  if(!keep || !merge || keep.id === merge.id) return;
+  merge.sources.forEach(s => { if(!keep.sources.includes(s)) keep.sources.push(s); });
+  if(merge.status === 'done' && keep.status !== 'done'){
+    keep.status = 'done';
+    keep.doneDate = merge.doneDate;
+    keep.schedule = merge.schedule;
+    keep.revisions = merge.revisions;
+    keep.repsDone = merge.repsDone;
+  } else if(merge.status === 'done' && keep.status === 'done'){
+    if(merge.doneDate && keep.doneDate && merge.doneDate < keep.doneDate){
+      keep.doneDate = merge.doneDate;
+      keep.schedule = merge.schedule;
+    }
+    const revSet = new Set([...(keep.revisions||[]), ...(merge.revisions||[])]);
+    keep.revisions = Array.from(revSet).sort();
+    keep.repsDone = keep.revisions.length;
+  }
+  state.topics = state.topics.filter(t => t.id !== mergeId);
+  saveState();
+}
+
+function addNewTopic(name, category, sourceLabel, markDone){
+  const id = 'u' + Date.now() + Math.floor(Math.random()*1000);
+  const today = todayStr();
+  const t = {
+    id, name, category,
+    sources: sourceLabel ? [sourceLabel] : ['Manually added'],
+    status: markDone ? 'done' : 'pending',
+    doneDate: markDone ? today : null,
+    schedule: markDone ? computeSchedule(today, DEADLINE, REPS_TARGET) : null,
+    revisions: [], repsDone: 0,
+  };
+  state.topics.push(t);
+  saveState();
+  return t;
+}
+
+function addSourceToTopic(id, sourceLabel){
+  const t = getTopic(id);
+  if(!t || !sourceLabel) return;
+  if(!t.sources.includes(sourceLabel)) t.sources.push(sourceLabel);
+  saveState();
+}
+
+/* A topic's rep only counts once EVERY source has been individually checked in the
+   same sitting. checkedSourcesToday holds which sources are ticked today; it resets
+   whenever the day changes or once the rep is fully completed (fresh slate next time). */
+function ensureFreshChecklistForToday(t){
+  const today = todayStr();
+  if(t.checklistDate !== today){
+    t.checklistDate = today;
+    t.checkedSourcesToday = [];
+  }
+  if(!t.checkedSourcesToday) t.checkedSourcesToday = [];
+}
+
+function toggleSourceCheck(id, sourceLabel){
+  const t = getTopic(id);
+  if(!t) return;
+  ensureFreshChecklistForToday(t);
+  const today = todayStr();
+  if(t.revisions.includes(today)) return; // already fully completed today, nothing to toggle
+  const idx = t.checkedSourcesToday.indexOf(sourceLabel);
+  if(idx === -1) t.checkedSourcesToday.push(sourceLabel);
+  else t.checkedSourcesToday.splice(idx,1);
+
+  // if every source is now checked, auto-complete the rep
+  if(t.sources.length > 0 && t.checkedSourcesToday.length >= t.sources.length){
+    completeRevision(id);
+  }
+  saveState();
+}
+
+function isTopicFullyCheckedToday(t){
+  ensureFreshChecklistForToday(t);
+  const today = todayStr();
+  if(t.revisions.includes(today)) return true;
+  return t.sources.length > 0 && t.checkedSourcesToday.length >= t.sources.length;
+}
+
+/* Recompute the remaining reps' due-dates starting from TODAY (the day this rep was
+   actually completed), instead of trusting the original stagger-based schedule.
+   Crucially, this uses the GAP INDEX matching the rep number that's coming next
+   (e.g. the rep-1-to-rep-2 gap is always small/fast; the rep-9-to-rep-10 gap is
+   always wide/slow) rather than restarting the widening sequence from its smallest
+   gap every time a rep completes. That would make every rep feel like "rep 2" -
+   due almost immediately - which defeats the point of spaced repetition. */
+function rescheduleRemaining(t, fromDate){
+  const repsLeft = REPS_TARGET - t.repsDone;
+  if(repsLeft <= 0) return;
+  const deadline = new Date(DEADLINE);
+  const totalDaysLeft = Math.max(1, Math.round((deadline - new Date(fromDate)) / 86400000));
+
+  // Use the SAME gap shape as the original 15-rep schedule, but only the portion
+  // corresponding to the remaining reps (indices t.repsDone..13), rescaled to fit
+  // the days actually left until the deadline from today.
+  const allGaps = baseGaps(REPS_TARGET - 1); // 14 gaps for 15 reps
+  const remainingGaps = allGaps.slice(t.repsDone); // gaps for the reps still to come
+  const gapSum = remainingGaps.reduce((a,b)=>a+b,0);
+  const scale = gapSum > 0 ? (totalDaysLeft / gapSum) : 1;
+
+  let cursor = 0;
+  const futureDates = [];
+  for(const g of remainingGaps){
+    cursor += g * scale;
+    const d = new Date(new Date(fromDate).getTime() + Math.round(cursor) * 86400000);
+    if(d > deadline) d.setTime(deadline.getTime());
+    futureDates.push(d.toISOString().slice(0,10));
+  }
+
+  const pastDates = t.schedule.slice(0, t.repsDone);
+  t.schedule = [...pastDates, ...futureDates];
+}
+
+function completeRevision(id){
+  const t = getTopic(id);
+  if(!t) return;
+  const today = todayStr();
+  if(t.revisions.includes(today)) return;
+  t.revisions.push(today);
+  t.repsDone = t.revisions.length;
+  t.checkedSourcesToday = [];
+  if(t.schedule) rescheduleRemaining(t, today);
+  saveState();
+}
+
+function uncompleteRevision(id){
+  const t = getTopic(id);
+  if(!t) return;
+  const today = todayStr();
+  t.revisions = t.revisions.filter(d => d !== today);
+  t.repsDone = t.revisions.length;
+  t.checkedSourcesToday = [];
+  t.checklistDate = today;
+  saveState();
+}
+
+/* Returns { overdue: [...], todayBacklog: [...], todayFresh: [...], displayList: [...] }
+   overdue      = due date was BEFORE today -> always shown, never capped
+   todayBacklog = due TODAY and this is rep 1 (topic just marked done recently, first revision) -> capped at DAILY_CAP_BACKLOG
+   todayFresh   = due TODAY and this is rep 2+ (already in rotation) -> capped at DAILY_CAP_FRESH
+   If one bucket has spare capacity and the other has overflow, spare capacity is donated. */
+/* Pick up to n items from a due-date-sorted list, preferring category variety.
+   Never lets variety override genuine urgency: items are grouped into "due-date bands"
+   (same date = same band), and within a band we round-robin across categories so
+   5 topics due the same day don't all come from Science & Tech. Across different
+   due-date bands, the earlier band always goes first (urgency still wins). */
+function pickDiverse(sortedByDueDate, n){
+  if(sortedByDueDate.length <= n) return sortedByDueDate.slice();
+  // group into bands by due date string
+  const bands = [];
+  let currentBand = [];
+  let currentDate = null;
+  sortedByDueDate.forEach(t => {
+    const d = t.schedule[t.repsDone];
+    if(d !== currentDate){
+      if(currentBand.length) bands.push(currentBand);
+      currentBand = [];
+      currentDate = d;
+    }
+    currentBand.push(t);
+  });
+  if(currentBand.length) bands.push(currentBand);
+
+  const picked = [];
+  for(const band of bands){
+    if(picked.length >= n) break;
+    const remaining = n - picked.length;
+    if(band.length <= remaining){
+      picked.push(...band);
+      continue;
+    }
+    // round-robin across categories within this band
+    const byCategory = {};
+    band.forEach(t => { (byCategory[t.category] = byCategory[t.category]||[]).push(t); });
+    const catKeys = Object.keys(byCategory);
+    let ci = 0;
+    while(picked.length < n && catKeys.some(k => byCategory[k].length > 0)){
+      const key = catKeys[ci % catKeys.length];
+      if(byCategory[key].length > 0){
+        picked.push(byCategory[key].shift());
+      }
+      ci++;
+    }
+  }
+  return picked;
+}
+
+function getTodayQueue(){
+  const today = todayStr();
+  const allDue = state.topics.filter(t => {
+    if(t.status !== "done" || !t.schedule) return false;
+    if(t.repsDone >= REPS_TARGET) return false;
+    const nextDueDate = t.schedule[t.repsDone];
+    if(!nextDueDate) return false;
+    return nextDueDate <= today;
+  });
+
+  const overdue = allDue.filter(t => t.schedule[t.repsDone] < today);
+  const dueToday = allDue.filter(t => t.schedule[t.repsDone] === today);
+
+  const todayBacklogAll = dueToday.filter(t => t.repsDone === 0);
+  const todayFreshAll   = dueToday.filter(t => t.repsDone > 0);
+
+  const byDueDate = (a,b) => (a.schedule[a.repsDone]).localeCompare(b.schedule[b.repsDone]);
+  overdue.sort(byDueDate);
+  todayBacklogAll.sort(byDueDate);
+  todayFreshAll.sort(byDueDate);
+
+  let backlogSlots = DAILY_CAP_BACKLOG;
+  let freshSlots = DAILY_CAP_FRESH;
+  const takenBacklog = pickDiverse(todayBacklogAll, backlogSlots);
+  const leftoverFromBacklog = backlogSlots - takenBacklog.length;
+  const takenFresh = pickDiverse(todayFreshAll, freshSlots + leftoverFromBacklog);
+  const leftoverFromFresh = (freshSlots + leftoverFromBacklog) - takenFresh.length;
+  const takenBacklogIds = new Set(takenBacklog.map(t=>t.id));
+  const remainingBacklog = todayBacklogAll.filter(t => !takenBacklogIds.has(t.id));
+  const extraBacklog = leftoverFromFresh > 0 ? pickDiverse(remainingBacklog, leftoverFromFresh) : [];
+
+  const todayBacklog = [...takenBacklog, ...extraBacklog];
+  const todayFresh = takenFresh;
+
+  const displayList = [...overdue, ...todayBacklog, ...todayFresh];
+
+  return { overdue, todayBacklog, todayFresh, displayList,
+    hiddenBacklogCount: Math.max(0, todayBacklogAll.length - todayBacklog.length),
+    hiddenFreshCount: Math.max(0, todayFreshAll.length - todayFresh.length) };
+}
+
+function getCompletedTodayIds(){
+  const today = todayStr();
+  return new Set(state.topics.filter(t => t.revisions.includes(today)).map(t=>t.id));
+}
+
+function showToast(msg){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(()=> el.classList.remove('show'), 1800);
+}
+
+function renderToday(){
+  const label = document.getElementById('todayDateLabel');
+  label.textContent = new Date().toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long' });
+
+  const q = getTodayQueue();
+  const completedIds = getCompletedTodayIds();
+  const displayList = q.displayList;
+
+  const doneCount = displayList.filter(t => completedIds.has(t.id)).length;
+  const totalDueIncludingHidden = q.overdue.length + q.todayBacklog.length + q.todayFresh.length + q.hiddenBacklogCount + q.hiddenFreshCount;
+  document.getElementById('todayDueCount').textContent = displayList.length;
+  const pct = displayList.length ? Math.round((doneCount/displayList.length)*100) : 0;
+  document.getElementById('todayProgressFill').style.width = pct + '%';
+
+  const badgeEl = document.getElementById('overdueBadge');
+  const hiddenTotal = q.hiddenBacklogCount + q.hiddenFreshCount;
+  let badgeHtml = '';
+  if(q.overdue.length > 0){
+    badgeHtml += `<div class="overdue-badge">&#9888; ${q.overdue.length} overdue - shown below, not capped, stays until you clear it</div>`;
+  }
+  if(hiddenTotal > 0){
+    badgeHtml += `<div class="overdue-badge" style="margin-top:6px;">${hiddenTotal} more due today, waiting for tomorrow's slots (daily cap)</div>`;
+  }
+  badgeEl.innerHTML = badgeHtml;
+
+  const listEl = document.getElementById('todayList');
+  listEl.innerHTML = '';
+
+  if(displayList.length === 0){
+    listEl.innerHTML = '<div class="empty"><div class="glyph">&#10003;</div><h3>Nothing due today</h3><p>Your revision queue is clear. Check the Backlog tab to log topics you have covered, or come back tomorrow.</p></div>';
+    return;
+  }
+
+  const overdueIds = new Set(q.overdue.map(t=>t.id));
+
+  displayList.forEach(t => {
+    ensureFreshChecklistForToday(t);
+    const checked = completedIds.has(t.id);
+    const isOverdue = overdueIds.has(t.id);
+    const card = document.createElement('div');
+    card.className = 'topic-card-expanded' + (checked ? ' done-today' : '');
+    const repNum = t.repsDone + (checked ? 0 : 1);
+    const circumference = 2 * Math.PI * 16;
+    const offset = circumference - (t.repsDone/REPS_TARGET) * circumference;
+    const nSources = Math.max(1, t.sources.length);
+    const nChecked = checked ? nSources : t.checkedSourcesToday.length;
+
+    const sourcesHtml = (t.sources.length ? t.sources : ['(no source recorded)']).map(s => {
+      const isChecked = checked || t.checkedSourcesToday.includes(s);
+      return `
+        <div class="source-check-row ${isChecked?'checked':''}" data-id="${t.id}" data-source="${escapeHtml(s)}">
+          <div class="source-check-box ${isChecked?'checked':''}">
+            <svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+          </div>
+          <div class="source-check-label">${escapeHtml(s)}</div>
+        </div>`;
+    }).join('');
+
+    card.innerHTML = `
+      <div class="topic-card-header">
+        <div class="topic-info">
+          <div class="topic-name">${escapeHtml(t.name)}</div>
+          <div class="topic-meta">
+            ${isOverdue ? '<span class="rep-badge" style="background:rgba(181,83,60,0.18); color:#B5533C; border-color:rgba(181,83,60,0.3);">OVERDUE</span>' : ''}
+            <span class="rep-badge">Rep ${Math.min(repNum, REPS_TARGET)} / ${REPS_TARGET}</span>
+            <span class="cat-tag">${escapeHtml(t.category)}</span>
+            ${!checked ? `<span class="src-progress">${nChecked}/${nSources} sources today</span>` : ''}
+          </div>
+        </div>
+        <div class="dial">
+          <svg viewBox="0 0 40 40">
+            <circle class="dial-track" cx="20" cy="20" r="16"/>
+            <circle class="dial-fill" cx="20" cy="20" r="16" stroke-dasharray="${circumference}" stroke-dashoffset="${offset}"/>
+          </svg>
+          <div class="dial-label">${t.repsDone}</div>
+        </div>
+      </div>
+      <div class="source-check-list">${sourcesHtml}</div>
+    `;
+
+    if(!checked){
+      card.querySelectorAll('.source-check-row').forEach(row => {
+        row.addEventListener('click', () => {
+          toggleSourceCheck(t.id, row.dataset.source);
+          const nowDone = getTopic(t.id).revisions.includes(todayStr());
+          if(nowDone) showToast('Revision logged - all sources covered');
+          renderToday();
+          renderStats();
+        });
+      });
+    } else {
+      card.querySelector('.topic-card-header').addEventListener('click', () => {
+        uncompleteRevision(t.id);
+        showToast('Unmarked');
+        renderToday();
+        renderStats();
+      });
+    }
+    listEl.appendChild(card);
+  });
+}
+
+let expandedCategories = new Set();
+
+function renderBacklog(){
+  const search = (document.getElementById('backlogSearch').value || '').toLowerCase();
+  const pending = state.topics.filter(t => t.status === 'pending' && t.name.toLowerCase().includes(search));
+  document.getElementById('backlogCount').textContent = state.topics.filter(t=>t.status==='pending').length;
+
+  const listEl = document.getElementById('backlogList');
+  listEl.innerHTML = '';
+
+  if(pending.length === 0){
+    listEl.innerHTML = `<div class="empty"><div class="glyph">&#128229;</div><h3>${search ? 'No matches' : 'Backlog clear'}</h3><p>${search ? 'Try a different search term.' : 'Everything pending has been marked done. New topics will appear here as your resources grow.'}</p></div>`;
+    return;
+  }
+
+  const byCat = {};
+  pending.forEach(t => { (byCat[t.category] = byCat[t.category]||[]).push(t); });
+
+  if(search) Object.keys(byCat).forEach(c => expandedCategories.add(c));
+
+  Object.keys(byCat).sort().forEach(cat => {
+    const isOpen = expandedCategories.has(cat);
+    const header = document.createElement('button');
+    header.className = 'cat-collapse-header';
+    header.innerHTML = `<span class="cat-collapse-arrow ${isOpen?'open':''}">&#9656;</span><span class="cat-collapse-name">${escapeHtml(cat)}</span><span class="cat-collapse-count">${byCat[cat].length}</span>`;
+    header.addEventListener('click', () => {
+      if(expandedCategories.has(cat)) expandedCategories.delete(cat);
+      else expandedCategories.add(cat);
+      renderBacklog();
+    });
+    listEl.appendChild(header);
+
+    if(!isOpen) return;
+
+    const group = document.createElement('div');
+    group.className = 'cat-collapse-body';
+    byCat[cat].forEach(t => {
+      const card = document.createElement('div');
+      card.className = 'pending-card';
+      card.innerHTML = `
+        <button class="pending-check" data-id="${t.id}">+</button>
+        <div class="pending-info">
+          <div class="pending-name">${escapeHtml(t.name)}</div>
+          <div class="pending-sources">${t.category === 'Daily MCQs' && t.loggedDays ? `${t.loggedDays.length}/7 days logged this week` : `${t.sources.length} source${t.sources.length>1?'s':''} &middot; ${escapeHtml(t.sources[0]||'')}${t.sources.length>1?' +'+(t.sources.length-1):''}`}</div>
+        </div>
+      `;
+      card.querySelector('.pending-check').addEventListener('click', () => {
+        markTopicDone(t.id);
+        showToast('Added to revision cycle');
+        renderBacklog();
+        renderToday();
+        renderStats();
+      });
+      group.appendChild(card);
+    });
+    listEl.appendChild(group);
+  });
+}
+
+let activeCategory = 'All';
+
+function renderCategoryChips(){
+  const cats = ['All', ...new Set(state.topics.map(t=>t.category))];
+  const row = document.getElementById('categoryChips');
+  row.innerHTML = '';
+  cats.forEach(c => {
+    const chip = document.createElement('button');
+    chip.className = 'chip' + (c === activeCategory ? ' active' : '');
+    chip.textContent = c;
+    chip.addEventListener('click', () => { activeCategory = c; renderCategoryChips(); renderAll(); });
+    row.appendChild(chip);
+  });
+}
+
+let expandedTopicId = null;
+
+function renderAll(){
+  const search = (document.getElementById('allSearch').value || '').toLowerCase();
+  let list = state.topics.filter(t => t.name.toLowerCase().includes(search));
+  if(activeCategory !== 'All') list = list.filter(t => t.category === activeCategory);
+  list.sort((a,b) => a.name.localeCompare(b.name));
+
+  const listEl = document.getElementById('allList');
+  listEl.innerHTML = '';
+
+  if(list.length === 0){
+    listEl.innerHTML = '<div class="empty"><div class="glyph">&#128269;</div><h3>No matches</h3><p>Try a different search or filter.</p></div>';
+    return;
+  }
+
+  list.forEach(t => {
+    const row = document.createElement('div');
+    row.className = 'all-row';
+    row.innerHTML = `
+      <div class="status-dot ${t.status}"></div>
+      <div class="all-row-info">
+        <div class="all-row-name">${escapeHtml(t.name)}</div>
+        <div class="all-row-meta">${escapeHtml(t.category)} &middot; ${t.sources.length} source${t.sources.length>1?'s':''} &middot; tap to view</div>
+      </div>
+      <div class="all-row-reps">${t.status==='done' ? t.repsDone+'/'+REPS_TARGET : 'Not started'}</div>
+    `;
+    row.addEventListener('click', () => {
+      expandedTopicId = (expandedTopicId === t.id) ? null : t.id;
+      renderAll();
+    });
+    listEl.appendChild(row);
+
+    if(expandedTopicId === t.id){
+      const detail = document.createElement('div');
+      detail.className = 'all-row-expand';
+      const sourcesHtml = t.sources.length
+        ? t.sources.map(s => `<div class="source-item">${escapeHtml(s)}</div>`).join('')
+        : `<div class="source-item">No sources recorded</div>`;
+      let historyHtml = '';
+      if(t.status === 'done'){
+        if(t.revisions && t.revisions.length){
+          historyHtml = `<div class="all-row-expand-title">Revision history (${t.revisions.length}/${REPS_TARGET})</div>
+            <div class="rep-history">${t.revisions.map(d => `<span class="rep-history-date">${fmtDate(d)}</span>`).join('')}</div>`;
+        } else {
+          historyHtml = `<div class="all-row-expand-title">Revision history</div><div>Started ${t.doneDate ? fmtDate(t.doneDate) : ''}, no reps logged yet.</div>`;
+        }
+        if(t.schedule && t.repsDone < REPS_TARGET){
+          historyHtml += `<div class="all-row-expand-title" style="margin-top:10px;">Next due</div><div>${fmtDate(t.schedule[t.repsDone])}</div>`;
+        }
+      }
+      detail.innerHTML = `<div class="all-row-expand-title">Sources (${t.sources.length})</div>${sourcesHtml}${historyHtml}`;
+      listEl.appendChild(detail);
+    }
+  });
+}
+
+function fmtDate(d){
+  if(!d) return '';
+  const dt = new Date(d);
+  return dt.toLocaleDateString('en-GB', { day:'numeric', month:'short' });
+}
+
+function renderStats(){
+  const total = state.topics.length;
+  const done = state.topics.filter(t=>t.status==='done').length;
+  const totalReps = state.topics.reduce((s,t)=>s+t.repsDone,0);
+  const daysLeft = Math.max(0, Math.round((new Date(DEADLINE) - new Date()) / 86400000));
+
+  document.getElementById('statTotal').textContent = total;
+  document.getElementById('statDone').textContent = done;
+  document.getElementById('statReps').textContent = totalReps;
+  document.getElementById('statDaysLeft').textContent = daysLeft;
+
+  const byCat = {};
+  state.topics.forEach(t => {
+    byCat[t.category] = byCat[t.category] || {done:0,total:0};
+    byCat[t.category].total++;
+    if(t.status==='done') byCat[t.category].done++;
+  });
+  const barsEl = document.getElementById('categoryBars');
+  barsEl.innerHTML = '';
+  Object.keys(byCat).sort().forEach(cat => {
+    const {done,total} = byCat[cat];
+    const pct = total ? Math.round((done/total)*100) : 0;
+    const row = document.createElement('div');
+    row.className = 'cat-bar-row';
+    row.innerHTML = `<div class="cat-bar-top"><span class="cat-name">${escapeHtml(cat)}</span><span class="cat-frac">${done}/${total}</span></div><div class="cat-bar-track"><div class="cat-bar-fill" style="width:${pct}%"></div></div>`;
+    barsEl.appendChild(row);
+  });
+
+  renderMcqStatus();
+  renderDuplicates();
+}
+
+function normForDup(s){
+  return s.toLowerCase().replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ').trim()
+    .replace(/\b(part|pt)\s*\d+\b/g,'').replace(/\b(19|20)\d{2}\b/g,'').replace(/\s+/g,' ').trim();
+}
+
+/* Simple character-bigram similarity (Dice coefficient) - catches near-duplicates like
+   "Anti Defection Law" / "Anti-Defection Law" or "16th Finance Commission" / "16th Finance
+   Commission report" that don't share their first two words. */
+function bigrams(s){
+  const set = new Set();
+  for(let i=0;i<s.length-1;i++) set.add(s.slice(i,i+2));
+  return set;
+}
+function diceSimilarity(a, b){
+  const A = bigrams(a), B = bigrams(b);
+  if(A.size===0 || B.size===0) return 0;
+  let overlap = 0;
+  A.forEach(g => { if(B.has(g)) overlap++; });
+  return (2*overlap) / (A.size + B.size);
+}
+function wordOverlapRatio(a, b){
+  const wa = new Set(a.split(' ').filter(w=>w.length>2));
+  const wb = new Set(b.split(' ').filter(w=>w.length>2));
+  if(wa.size===0 || wb.size===0) return 0;
+  let common = 0;
+  wa.forEach(w => { if(wb.has(w)) common++; });
+  return common / Math.min(wa.size, wb.size);
+}
+
+function findDuplicateGroups(){
+  const items = state.topics.map(t => ({ t, norm: normForDup(t.name) })).filter(x => x.norm.length > 3);
+  const used = new Set();
+  const groups = [];
+  for(let i=0;i<items.length;i++){
+    if(used.has(items[i].t.id)) continue;
+    const group = [items[i].t];
+    for(let j=i+1;j<items.length;j++){
+      if(used.has(items[j].t.id)) continue;
+      const sim = diceSimilarity(items[i].norm, items[j].norm);
+      const wordRatio = wordOverlapRatio(items[i].norm, items[j].norm);
+      if(sim > 0.62 && wordRatio > 0.6){
+        group.push(items[j].t);
+        used.add(items[j].t.id);
+      }
+    }
+    if(group.length > 1){
+      used.add(items[i].t.id);
+      groups.push(group);
+    }
+  }
+  return groups;
+}
+
+function renderMcqStatus(){
+  const el = document.getElementById('mcqStatusList');
+  const mcqBatches = state.topics.filter(t => t.category === 'Daily MCQs')
+    .sort((a,b) => (b.weekKey||'').localeCompare(a.weekKey||''));
+  const oneLiners = state.topics.filter(t => t.category === 'Magazine One-Liners')
+    .sort((a,b) => a.name.localeCompare(b.name));
+
+  if(mcqBatches.length === 0 && oneLiners.length === 0){
+    el.innerHTML = '<div class="empty" style="padding:24px 20px;"><p>No MCQ batches or one-liner sets logged yet. Use the green + button daily to start one.</p></div>';
+    return;
+  }
+
+  let html = '';
+  if(mcqBatches.length){
+    html += '<div style="font-size:11.5px; color:var(--text-dimmer); font-weight:700; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px;">Weekly MCQ batches (35 questions each)</div>';
+    mcqBatches.forEach(t => {
+      const days = t.loggedDays || [];
+      const isComplete = t.status === 'done';
+      const dayDots = [0,1,2,3,4,5,6].map(i => {
+        // best-effort: just show count filled vs empty, since exact weekday mapping isn't stored
+        return i < days.length ? '&#9679;' : '&#9675;';
+      }).join(' ');
+      html += `<div class="source-item" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+        <div>
+          <div style="font-weight:600; color:var(--parchment); font-size:13.5px;">${escapeHtml(t.name)}</div>
+          <div style="font-size:11.5px; color:var(--text-dimmer); margin-top:2px;">${isComplete ? `In revision cycle &middot; ${t.repsDone}/${REPS_TARGET} reps` : `${days.length}/7 days logged`}</div>
+        </div>
+        <div style="font-size:13px; letter-spacing:1px; color:${isComplete?'var(--sage)':'var(--amber)'};">${dayDots}</div>
+      </div>`;
+    });
+  }
+  if(oneLiners.length){
+    html += '<div style="font-size:11.5px; color:var(--text-dimmer); font-weight:700; text-transform:uppercase; letter-spacing:0.05em; margin:14px 0 8px;">Magazine one-liner sets</div>';
+    oneLiners.forEach(t => {
+      html += `<div class="source-item" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+        <div style="font-weight:600; color:var(--parchment); font-size:13.5px;">${escapeHtml(t.name)}</div>
+        <div style="font-size:11.5px; color:${t.status==='done'?'var(--sage)':'var(--text-dimmer)'};">${t.status==='done' ? t.repsDone+'/'+REPS_TARGET+' reps' : 'Pending'}</div>
+      </div>`;
+    });
+  }
+  el.innerHTML = html;
+}
+
+function renderDuplicates(){
+  const dupEl = document.getElementById('dupList');
+  const candidates = findDuplicateGroups().slice(0, 20);
+
+  dupEl.innerHTML = '';
+  if(candidates.length === 0){
+    dupEl.innerHTML = '<div class="empty" style="padding:30px 20px;"><p>No obvious duplicates detected right now.</p></div>';
+    return;
+  }
+  candidates.forEach(group => {
+    const card = document.createElement('div');
+    card.className = 'dup-card';
+    const sorted = [...group].sort((a,b) => {
+      if(a.status==='done' && b.status!=='done') return -1;
+      if(b.status==='done' && a.status!=='done') return 1;
+      return b.sources.length - a.sources.length;
+    });
+    const primary = sorted[0];
+    const others = sorted.slice(1);
+    card.innerHTML = `
+      <div class="dup-title">Possibly the same topic</div>
+      ${group.map(t => `<div class="dup-pair">${t.id===primary.id?'&#9733; ':'&bull; '}${escapeHtml(t.name)} <span style="color:var(--text-dimmer)">(${escapeHtml(t.category)}, ${t.sources.length} src${t.status==='done'?', done':''})</span></div>`).join('')}
+      <div style="font-size:11.5px; color:var(--text-dimmer); margin-top:6px;">&#9733; = kept as primary when merged. Sources and progress combine into it.</div>
+      <div class="dup-actions">
+        <button class="dup-btn primary" data-action="merge" data-keep="${primary.id}" data-merge="${others.map(o=>o.id).join(',')}">Yes, merge these</button>
+        <button class="dup-btn" data-action="dismiss">Not the same</button>
+      </div>
+    `;
+    card.querySelector('[data-action="merge"]').addEventListener('click', (e) => {
+      const keepId = e.target.dataset.keep;
+      const mergeIds = e.target.dataset.merge.split(',').filter(Boolean);
+      mergeIds.forEach(mid => mergeTopics(keepId, mid));
+      showToast('Merged');
+      renderStats();
+      renderBacklog();
+    });
+    card.querySelector('[data-action="dismiss"]').addEventListener('click', () => {
+      card.remove();
+    });
+    dupEl.appendChild(card);
+  });
+}
+
+function escapeHtml(s){
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function switchView(view){
+  document.querySelectorAll('[id^="view-"]').forEach(v => v.classList.add('hidden'));
+  document.getElementById('view-'+view).classList.remove('hidden');
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.view===view));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view===view));
+  if(view==='today') renderToday();
+  if(view==='backlog') renderBacklog();
+  if(view==='all'){ renderCategoryChips(); renderAll(); }
+  if(view==='stats') renderStats();
+  window.scrollTo(0,0);
+}
+
+document.querySelectorAll('.tab, .nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => switchView(btn.dataset.view));
+});
+
+document.getElementById('backlogSearch').addEventListener('input', renderBacklog);
+document.getElementById('allSearch').addEventListener('input', renderAll);
+
+/* ============================================================
+   ADD MODAL
+   ============================================================ */
+const addModal = document.getElementById('addModal');
+const fabAdd = document.getElementById('fabAdd');
+let addMode = 'new';
+let selectedExistingId = null;
+let selectedNewStatus = 'pending';
+
+function populateCategoryDropdown(){
+  const sel = document.getElementById('newTopicCategory');
+  const cats = new Set(state.topics.map(t=>t.category));
+  cats.add('Daily MCQs');
+  cats.add('Magazine One-Liners');
+  const sorted = [...cats].sort();
+  sel.innerHTML = sorted.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+}
+
+/* Week key: Monday-start ISO-ish week, e.g. "2026-W04" */
+function getWeekKey(dateStr){
+  const d = new Date(dateStr);
+  const day = d.getDay(); // 0=Sun
+  const diffToMonday = (day === 0 ? -6 : 1) - day;
+  const monday = new Date(d);
+  monday.setDate(d.getDate() + diffToMonday);
+  const y = monday.getFullYear();
+  const jan1 = new Date(y,0,1);
+  const weekNum = Math.ceil((((monday - jan1) / 86400000) + jan1.getDay()+1) / 7);
+  return { key: `${y}-W${String(weekNum).padStart(2,'0')}`, mondayDate: monday.toISOString().slice(0,10) };
+}
+
+function findOrCreateWeekBatch(weekKey, mondayDate){
+  let batch = state.topics.find(t => t.category === 'Daily MCQs' && t.weekKey === weekKey);
+  if(!batch){
+    const id = 'mcq_' + weekKey;
+    batch = {
+      id, name: `Daily MCQs — Week of ${mondayDate}`, category: 'Daily MCQs',
+      sources: [], status: 'pending', doneDate: null, schedule: null,
+      revisions: [], repsDone: 0, weekKey, loggedDays: []
+    };
+    state.topics.push(batch);
+  }
+  return batch;
+}
+
+document.getElementById('fabMcq').addEventListener('click', () => {
+  const today = todayStr();
+  const { key, mondayDate } = getWeekKey(today);
+  const batch = findOrCreateWeekBatch(key, mondayDate);
+
+  if(!batch.loggedDays) batch.loggedDays = [];
+  if(batch.loggedDays.includes(today)){
+    showToast("Already logged today's 5 MCQs");
+    return;
+  }
+  batch.loggedDays.push(today);
+  batch.sources.push('Daily 5 MCQs (' + today + ')');
+
+  if(batch.loggedDays.length >= 7 && batch.status !== 'done'){
+    batch.status = 'done';
+    batch.doneDate = today;
+    batch.schedule = computeSchedule(today, DEADLINE, REPS_TARGET);
+    batch.revisions = [];
+    batch.repsDone = 0;
+    showToast('Week complete (35 MCQs) — added to revision cycle');
+  } else {
+    showToast(`Logged (${batch.loggedDays.length}/7 days this week)`);
+  }
+  saveState();
+  renderToday();
+  renderStats();
+});
+
+const backfillModal = document.getElementById('backfillModal');
+document.getElementById('fabMcqBackfill').addEventListener('click', () => {
+  document.getElementById('backfillMonday').value = '';
+  backfillModal.classList.remove('hidden');
+});
+document.getElementById('backfillCancel').addEventListener('click', () => backfillModal.classList.add('hidden'));
+backfillModal.addEventListener('click', (e) => { if(e.target === backfillModal) backfillModal.classList.add('hidden'); });
+
+document.getElementById('backfillSave').addEventListener('click', () => {
+  const mondayInput = document.getElementById('backfillMonday').value;
+  if(!mondayInput){ showToast('Pick a Monday first'); return; }
+  const { key, mondayDate } = getWeekKey(mondayInput);
+  const batch = findOrCreateWeekBatch(key, mondayDate);
+
+  if(batch.status === 'done'){
+    showToast('That week is already logged as done');
+    backfillModal.classList.add('hidden');
+    return;
+  }
+
+  // Backfilled week: mark all 7 days as logged, dated across that actual week (not today),
+  // and start the 15-rep revision schedule from that Monday - so its due-dates reflect when
+  // the content was really learned, not today.
+  const days = [];
+  for(let i=0;i<7;i++) days.push(addDays(mondayDate, i));
+  batch.loggedDays = days;
+  batch.sources = days.map(d => 'Daily 5 MCQs (' + d + ') [backfilled]');
+  batch.status = 'done';
+  batch.doneDate = mondayDate;
+  batch.schedule = computeSchedule(mondayDate, DEADLINE, REPS_TARGET);
+  batch.revisions = [];
+  batch.repsDone = 0;
+
+  saveState();
+  showToast('Week of ' + mondayDate + ' logged - added to revision cycle');
+  backfillModal.classList.add('hidden');
+  renderToday();
+  renderStats();
+});
+
+fabAdd.addEventListener('click', () => {
+  populateCategoryDropdown();
+  document.getElementById('newTopicName').value = '';
+  document.getElementById('newTopicSource').value = '';
+  document.getElementById('existingTopicSearch').value = '';
+  document.getElementById('existingTopicSource').value = '';
+  document.getElementById('existingTopicResults').innerHTML = '';
+  selectedExistingId = null;
+  addModal.classList.remove('hidden');
+});
+
+document.getElementById('modalCancel').addEventListener('click', () => addModal.classList.add('hidden'));
+addModal.addEventListener('click', (e) => { if(e.target === addModal) addModal.classList.add('hidden'); });
+
+document.querySelectorAll('.mode-opt').forEach(btn => {
+  btn.addEventListener('click', () => {
+    addMode = btn.dataset.mode;
+    document.querySelectorAll('.mode-opt').forEach(b => b.classList.toggle('active', b===btn));
+    document.getElementById('modeNew').classList.toggle('hidden', addMode!=='new');
+    document.getElementById('modeExisting').classList.toggle('hidden', addMode!=='existing');
+  });
+});
+
+document.querySelectorAll('.status-opt').forEach(btn => {
+  btn.addEventListener('click', () => {
+    selectedNewStatus = btn.dataset.status;
+    document.querySelectorAll('.status-opt').forEach(b => b.classList.toggle('selected', b===btn));
+  });
+});
+
+document.getElementById('existingTopicSearch').addEventListener('input', (e) => {
+  const q = e.target.value.toLowerCase();
+  const resultsEl = document.getElementById('existingTopicResults');
+  if(q.length < 2){ resultsEl.innerHTML = ''; return; }
+  const matches = state.topics.filter(t => t.name.toLowerCase().includes(q)).slice(0, 8);
+  resultsEl.innerHTML = matches.map(t => `
+    <div class="existing-result" data-id="${t.id}" style="padding:10px 12px; border-radius:8px; border:1.5px solid ${selectedExistingId===t.id?'var(--amber-dim)':'rgba(20,33,61,0.1)'}; margin-bottom:6px; font-size:13.5px; cursor:pointer; background:${selectedExistingId===t.id?'rgba(232,163,61,0.1)':'#fff'};">
+      ${escapeHtml(t.name)} <span style="color:rgba(20,33,61,0.5); font-size:11.5px;">(${escapeHtml(t.category)})</span>
+    </div>
+  `).join('');
+  resultsEl.querySelectorAll('.existing-result').forEach(el => {
+    el.addEventListener('click', () => {
+      selectedExistingId = el.dataset.id;
+      document.getElementById('existingTopicSearch').dispatchEvent(new Event('input'));
+    });
+  });
+});
+
+document.getElementById('modalSave').addEventListener('click', () => {
+  if(addMode === 'new'){
+    const name = document.getElementById('newTopicName').value.trim();
+    const category = document.getElementById('newTopicCategory').value;
+    const source = document.getElementById('newTopicSource').value.trim();
+    if(!name){ showToast('Enter a topic name'); return; }
+    addNewTopic(name, category, source, selectedNewStatus === 'done');
+    showToast('Topic added');
+  } else {
+    const source = document.getElementById('existingTopicSource').value.trim();
+    if(!selectedExistingId){ showToast('Select a topic first'); return; }
+    if(!source){ showToast('Enter a source'); return; }
+    addSourceToTopic(selectedExistingId, source);
+    showToast('Source added');
+  }
+  addModal.classList.add('hidden');
+  renderToday();
+  renderBacklog();
+  renderStats();
+});
+
+document.getElementById('exportBtn').addEventListener('click', () => {
+  try{
+    const dataStr = JSON.stringify(state, null, 2);
+    const blob = new Blob([dataStr], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const dateLabel = todayStr();
+    a.href = url;
+    a.download = `ledger-backup-${dateLabel}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Backup downloaded');
+  }catch(e){
+    showToast('Export failed');
+  }
+});
+
+document.getElementById('importBtn').addEventListener('click', () => {
+  document.getElementById('importFile').click();
+});
+
+document.getElementById('importFile').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    try{
+      const imported = JSON.parse(evt.target.result);
+      if(!imported.topics || !Array.isArray(imported.topics)){
+        showToast('That file does not look like a valid backup');
+        return;
+      }
+      const ok = confirm(`This will replace your current progress (${state.topics.length} topics) with the imported backup (${imported.topics.length} topics). Continue?`);
+      if(!ok) return;
+      state = imported;
+      saveState();
+      showToast('Progress restored');
+      renderToday();
+      renderBacklog();
+      renderStats();
+    }catch(err){
+      showToast('Could not read that file');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  const ok = confirm("This will permanently erase all logged revisions, merges, and manually added topics, then rebuild the schedule from scratch. This cannot be undone. Continue?");
+  if(!ok) return;
+  try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
+  location.reload();
+});
+
+initState();
+renderToday();
+
+const deadlineDate = new Date(DEADLINE);
+document.getElementById('deadlineChip').innerHTML = '15 reps by <b>' + deadlineDate.toLocaleDateString('en-GB',{day:'numeric',month:'short'}) + '</b>';
+</script>
+</body>
+</html>
